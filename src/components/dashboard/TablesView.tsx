@@ -1,0 +1,158 @@
+"use client";
+
+import { FormEvent, useState } from "react";
+import type { RestaurantTable, TableStatus } from "@/data/tables";
+import { getDefaultZoneForStatus, staticTables } from "@/data/tables";
+import TablesGrid from "@/components/dashboard/TablesGrid";
+
+function RefreshIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <path d="M23 4v6h-6M1 20v-6h6" />
+      <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+    </svg>
+  );
+}
+
+type FormState = {
+  number: string;
+  seats: string;
+  status: TableStatus;
+};
+
+const emptyForm = (): FormState => ({
+  number: "",
+  seats: "4",
+  status: "Available",
+});
+
+export default function TablesView() {
+  const [tables, setTables] = useState<RestaurantTable[]>(staticTables);
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState<FormState>(emptyForm);
+  const [formError, setFormError] = useState("");
+
+  function handleRefresh() {
+    setTables(staticTables);
+  }
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setFormError("");
+
+    const number = form.number.trim();
+    const seats = Math.max(1, Number(form.seats) || 1);
+
+    if (tables.some((table) => table.number === number)) {
+      setFormError("Bu masa nömrəsi artıq mövcuddur.");
+      return;
+    }
+
+    const next: RestaurantTable = {
+      id: `t-${Date.now()}`,
+      number,
+      seats,
+      status: form.status,
+      zone: getDefaultZoneForStatus(form.status),
+    };
+
+    setTables((prev) => [...prev, next].sort((a, b) => Number(a.number) - Number(b.number)));
+    setForm(emptyForm());
+    setShowForm(false);
+  }
+
+  return (
+    <div className="dash-page">
+      <header className="dash-page-header">
+        <div>
+          <h1 className="dash-page-title">Tables</h1>
+          <p className="dash-page-subtitle">Floor plan and seating capacity</p>
+        </div>
+        <div className="dash-page-header-actions">
+          <button type="button" className="dash-add-btn" onClick={() => setShowForm(true)}>
+            Add Table
+          </button>
+          <button type="button" className="dash-refresh-btn" aria-label="Refresh tables" onClick={handleRefresh}>
+            <RefreshIcon />
+          </button>
+        </div>
+      </header>
+
+      <div className="dash-tables-panel">
+        <TablesGrid tables={tables} />
+      </div>
+
+      {showForm ? (
+        <div className="dash-modal-overlay" role="presentation" onClick={() => setShowForm(false)}>
+          <div
+            className="dash-modal dash-res-modal"
+            role="dialog"
+            aria-labelledby="add-table-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="dash-modal-header">
+              <h2 id="add-table-title" className="dash-modal-title">
+                Add Table
+              </h2>
+              <button type="button" className="dash-modal-close" onClick={() => setShowForm(false)} aria-label="Bağla">
+                ×
+              </button>
+            </div>
+
+            <form className="dash-res-form dash-tables-form" onSubmit={handleSubmit}>
+              <label className="dash-res-field">
+                <span className="dash-res-label">Masa nömrəsi</span>
+                <input
+                  className="dash-res-input"
+                  value={form.number}
+                  onChange={(e) => setForm((prev) => ({ ...prev, number: e.target.value }))}
+                  placeholder="Məs: 17"
+                  required
+                />
+              </label>
+
+              <label className="dash-res-field">
+                <span className="dash-res-label">Neçə nəfərlik</span>
+                <input
+                  type="number"
+                  min={1}
+                  className="dash-res-input"
+                  value={form.seats}
+                  onChange={(e) => setForm((prev) => ({ ...prev, seats: e.target.value }))}
+                  placeholder="Məs: 4"
+                  required
+                />
+              </label>
+
+              <label className="dash-res-field dash-res-field--full">
+                <span className="dash-res-label">Status</span>
+                <select
+                  className="dash-res-input dash-res-select"
+                  value={form.status}
+                  onChange={(e) =>
+                    setForm((prev) => ({ ...prev, status: e.target.value as TableStatus }))
+                  }
+                >
+                  <option value="Available">Available (Boş)</option>
+                  <option value="Occupied">Occupied (Dolu)</option>
+                  <option value="Reserved">Reserved (Rezerv)</option>
+                </select>
+              </label>
+
+              {formError ? <p className="dash-tables-form-error">{formError}</p> : null}
+
+              <div className="dash-res-form-actions">
+                <button type="button" className="dash-res-btn-secondary" onClick={() => setShowForm(false)}>
+                  Ləğv et
+                </button>
+                <button type="submit" className="dash-res-btn-primary">
+                  Əlavə et
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
