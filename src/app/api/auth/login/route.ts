@@ -46,7 +46,14 @@ export async function POST(request: Request) {
     const { firstName, lastName, phone: rawPhone, password } = parsed.data;
     const phone = normalizePhoneDigits(rawPhone.trim());
 
-    await connectDb();
+    const db = await connectDb();
+    if (!db) {
+      return NextResponse.json(
+        { error: "Serverdə MONGODB_URI təyin edilməyib. Vercel Environment Variables yoxlayın." },
+        { status: 503 },
+      );
+    }
+
     let user = doc(await UserModel.findOne({ phone }).lean());
 
     if (!user) {

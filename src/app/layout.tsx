@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   title: "Metavision — AI That Works For Your Business",
   description:
     "Seamlessly integrate AI into your business workflow with professional database management, automation, and full technical support.",
-  appleWebApp: { capable: true, title: "Metavision" },
+  appleWebApp: false,
 };
 
 export default function RootLayout({
