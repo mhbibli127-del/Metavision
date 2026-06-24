@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { io, Socket } from "socket.io-client";
+import { resolveWebSocketBaseUrl } from "@/lib/ws-config";
 
 export type RealtimeEventType =
   | "order_update"
@@ -29,19 +30,15 @@ export function useRealtimeUpdates() {
   }, []);
 
   useEffect(() => {
-    const wsUrl = process.env.NEXT_PUBLIC_WS_URL;
-    if (!wsUrl) return;
-
-    const httpBase = wsUrl
-      .replace(/^ws:\/\//i, "http://")
-      .replace(/^wss:\/\//i, "https://")
-      .replace(/\/tastemind\/?$/i, "");
+    const httpBase = resolveWebSocketBaseUrl();
+    if (!httpBase) return;
 
     const newSocket = io(`${httpBase}/tastemind`, {
+      path: "/socket.io",
       transports: ["websocket", "polling"],
       reconnection: true,
       reconnectionDelay: 1000,
-      reconnectionAttempts: 5,
+      reconnectionAttempts: 3,
     });
 
     newSocket.on("connect", () => {

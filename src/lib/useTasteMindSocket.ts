@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useCallback } from "react";
 import { io, type Socket } from "socket.io-client";
+import { resolveWebSocketBaseUrl } from "@/lib/ws-config";
 
 type WsEvent =
   | "trends_update"
@@ -37,13 +38,8 @@ export function useTasteMindSocket(
   useEffect(() => {
     if (handlers === null) return;
 
-    const rawUrl = process.env.NEXT_PUBLIC_WS_URL;
-    if (!rawUrl) return;
-
-    const httpBase = rawUrl
-      .replace(/^ws:\/\//i, "http://")
-      .replace(/^wss:\/\//i, "https://")
-      .replace(/\/tastemind\/?$/i, "");
+    const httpBase = resolveWebSocketBaseUrl();
+    if (!httpBase) return;
 
     const socket = io(`${httpBase}/tastemind`, {
       path: "/socket.io",
@@ -51,7 +47,7 @@ export function useTasteMindSocket(
       reconnection: true,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
-      reconnectionAttempts: Infinity,
+      reconnectionAttempts: 3,
     });
     socketRef.current = socket;
 

@@ -1,7 +1,8 @@
 // AI Backend Integration for Metavision
-// Communicates with ai-for-metavision NestJS service (port 3001, prefix /api)
+// Communicates with ai-for-metavision NestJS service (Railway or local :3001)
 
-const AI_BACKEND_URL = process.env.AI_BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+import { getAiBackendUrl } from "@/lib/ai-backend-config";
+
 const AI_API_KEY = process.env.AI_API_KEY || "";
 
 export interface AIRequest {
@@ -21,7 +22,7 @@ export interface AIResponse<T = unknown> {
 export async function callAI<T = unknown>(request: AIRequest): Promise<AIResponse<T>> {
   try {
     const path = request.endpoint.startsWith("/api") ? request.endpoint : `/api${request.endpoint}`;
-    const url = new URL(`${AI_BACKEND_URL}${path}`);
+    const url = new URL(`${getAiBackendUrl()}${path}`);
 
     if (request.params) {
       Object.entries(request.params).forEach(([key, value]) => {
