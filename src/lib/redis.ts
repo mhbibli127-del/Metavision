@@ -1,26 +1,30 @@
-import { createClient, type RedisClientType } from "redis";
+import Redis from "ioredis";
 
 const CACHE_TTL_SEC = 600; // 10 minutes
 const memoryStore = new Map<string, { value: string; expiresAt: number }>();
 
-let client: RedisClientType | null = null;
-let connecting: Promise<RedisClientType | null> | null = null;
+let client: Redis | null = null;
+let connecting: Promise<Redis | null> | null = null;
 
-async function getClient(): Promise<RedisClientType | null> {
-  const url = process.env.REDIS_URL;
+async function getClient(): Promise<Redis | null> {
+  const url = process.env.REDIS_URL?.trim();
   if (!url) return null;
 
-  if (client?.isOpen) return client;
+  if (client?.status === "ready") return client;
 
   if (!connecting) {
     connecting = (async () => {
       try {
-        const c = createClient({ url });
+        const c = new Redis(url, {
+          maxRetriesPerRequest: 1,
+          lazyConnect: true,
+          enableOfflineQueue: false,
+        });
         c.on("error", () => {
           /* silent — fallback to memory */
         });
         await c.connect();
-        client = c as RedisClientType;
+        client = c;
         return client;
       } catch {
         return null;
@@ -69,8 +73,7 @@ export async function cacheGetStale(key: string): Promise<string | null> {
   const redis = await getClient();
   if (redis) {
     try {
-      const staleKey = `${key}:stale`;
-      return await redis.get(staleKey);
+      return await redis.get(`${key}:stale`);
     } catch {
       /* fall through */
     }
@@ -84,7 +87,7 @@ export async function cacheSet(key: string, value: string, ttlSec = CACHE_TTL_SE
   const redis = await getClient();
   if (redis) {
     try {
-      await redis.set(key, value, { EX: ttlSec });
+      await redis.set(key, value, "EX", ttlSec);
       await redis.set(`${key}:stale`, value);
       return;
     } catch {
@@ -101,8 +104,7 @@ export async function cacheDel(key: string): Promise<void> {
   const redis = await getClient();
   if (redis) {
     try {
-      await redis.del(key);
-      await redis.del(`${key}:stale`);
+      await redis.del(key, `${key}:stale`);
     } catch {
       /* fall through */
     }
