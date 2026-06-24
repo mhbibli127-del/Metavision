@@ -29,6 +29,15 @@
   z-index: 1;
 }
 
+.dash-main input,
+.dash-main select,
+.dash-main textarea,
+.dash-main button,
+.dash-main a {
+  pointer-events: auto;
+  touch-action: manipulation;
+}
+
 /* Sidebar — light, Linear-style */
 .dash-sidebar {
   box-sizing: border-box;
@@ -45,6 +54,7 @@
   box-shadow: none;
   z-index: 50;
   transition: transform var(--ds-duration-slow) var(--ds-ease);
+  pointer-events: auto;
 }
 
 .dash-sidebar-top {
@@ -161,6 +171,10 @@
   font-weight: var(--ds-weight-medium) !important;
   color: var(--ds-text-secondary) !important;
   text-decoration: none;
+  cursor: pointer;
+  pointer-events: auto;
+  position: relative;
+  z-index: 2;
   transition:
     background var(--ds-duration) var(--ds-ease),
     color var(--ds-duration) var(--ds-ease);

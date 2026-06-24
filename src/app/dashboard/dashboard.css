@@ -2166,19 +2166,6 @@
 }
 
 @media (max-width: 900px) {
-  .dash-shell {
-    flex-direction: column;
-  }
-
-  .dash-sidebar {
-    width: 100%;
-    min-width: 0;
-  }
-
-  .dash-page {
-    padding: 24px 20px 40px;
-  }
-
   .dash-stats {
     grid-template-columns: 1fr;
   }
@@ -4327,42 +4314,10 @@ textarea:focus-visible {
   }
 }
 
-/* ── Responsive Sidebar ── */
+/* Responsive sidebar rules live in dashboard-shell.css — avoid duplicate overrides here. */
 @media (max-width: 1024px) {
   .dash-shell {
     flex-direction: column;
-  }
-
-  .dash-sidebar {
-    width: 100%;
-    height: auto;
-    border-right: none;
-    border-bottom: 1px solid rgb(128 226 255 / 22%);
-  }
-
-  .dash-nav {
-    flex-direction: row;
-    overflow-x: auto;
-    padding: 12px;
-    gap: 8px;
-  }
-
-  .dash-nav-group-title {
-    display: none;
-  }
-
-  .dash-profile {
-    flex-direction: column;
-    align-items: stretch;
-    padding: 12px;
-  }
-
-  .dash-profile-body {
-    width: 100%;
-  }
-
-  .dash-profile-info {
-    flex: 1;
   }
 }
 

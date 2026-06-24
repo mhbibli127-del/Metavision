@@ -193,17 +193,18 @@ export default function DashboardSidebar() {
             {intelligenceNavItems.map((item) => {
               const active = pathname === item.href;
               return (
-                <Link
+                <a
                   key={item.href}
                   href={item.href}
                   className={`dash-nav-link${active ? " is-active" : ""}`}
                   aria-current={active ? "page" : undefined}
+                  onClick={closeSidebar}
                 >
                   <span className="dash-nav-icon" aria-hidden="true">
                     <NavIcon type={item.icon} />
                   </span>
                   <span>{t(item.labelKey)}</span>
-                </Link>
+                </a>
               );
             })}
 
@@ -211,17 +212,18 @@ export default function DashboardSidebar() {
             {operationsNavItems.map((item) => {
               const active = pathname === item.href;
               return (
-                <Link
+                <a
                   key={item.href}
                   href={item.href}
                   className={`dash-nav-link${active ? " is-active" : ""}`}
                   aria-current={active ? "page" : undefined}
+                  onClick={closeSidebar}
                 >
                   <span className="dash-nav-icon" aria-hidden="true">
                     <NavIcon type="grid" />
                   </span>
                   <span>{t(item.labelKey)}</span>
-                </Link>
+                </a>
               );
             })}
           </nav>

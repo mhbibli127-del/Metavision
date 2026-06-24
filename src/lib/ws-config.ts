@@ -1,8 +1,10 @@
 /**
- * WebSocket base URL — only when explicitly enabled.
- * Set NEXT_PUBLIC_ENABLE_WS=true and NEXT_PUBLIC_WS_URL on Vercel when Railway WS is ready.
+ * WebSocket base URL — only when explicitly enabled at build time.
+ * On Vercel keep NEXT_PUBLIC_ENABLE_WS=false until Railway WS is stable.
  */
 export function resolveWebSocketBaseUrl(): string | null {
+  if (typeof window === "undefined") return null;
+
   const enabled = process.env.NEXT_PUBLIC_ENABLE_WS === "true";
   const raw = process.env.NEXT_PUBLIC_WS_URL?.trim();
   if (!enabled || !raw) return null;

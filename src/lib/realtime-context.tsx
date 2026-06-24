@@ -10,7 +10,6 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { io, type Socket } from "socket.io-client";
 import { resolveWebSocketBaseUrl } from "@/lib/ws-config";
 
 export type RealtimeEventType =
@@ -64,10 +63,14 @@ const SOCKET_EVENTS: RealtimeEventType[] = [
   "connected",
 ];
 
+const WS_DEFER_MS = 4000;
+
 export function RealtimeProvider({ children }: { children: ReactNode }) {
   const [isConnected, setIsConnected] = useState(false);
   const [lastEvent, setLastEvent] = useState<RealtimeEvent | null>(null);
-  const socketRef = useRef<Socket | null>(null);
+  const socketRef = useRef<{ connected: boolean; emit: (e: string, d: unknown) => void; disconnect: () => void } | null>(
+    null,
+  );
 
   const pushEvent = useCallback((type: RealtimeEventType, data: unknown) => {
     setLastEvent({ type, data, timestamp: new Date() });
@@ -77,41 +80,55 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     const httpBase = resolveWebSocketBaseUrl();
     if (!httpBase) return;
 
-    const socket = io(`${httpBase}/tastemind`, {
-      path: "/socket.io",
-      transports: ["polling", "websocket"],
-      reconnection: true,
-      reconnectionDelay: 3000,
-      reconnectionAttempts: 2,
-      timeout: 10000,
-      withCredentials: true,
-    });
-    socketRef.current = socket;
+    let cancelled = false;
+    let cleanupSocket: (() => void) | undefined;
 
-    socket.on("connect", () => {
-      setIsConnected(true);
-      fetch("/api/auth/session")
-        .then((r) => r.json())
-        .then((d) => {
-          const restaurantId = d?.restaurant?.id as string | undefined;
-          if (restaurantId) {
-            socket.emit("subscribe_restaurant", { restaurantId });
-          }
-        })
-        .catch(() => {});
-    });
+    const timer = window.setTimeout(() => {
+      void import("socket.io-client").then(({ io }) => {
+        if (cancelled) return;
 
-    socket.on("disconnect", () => setIsConnected(false));
+        const socket = io(`${httpBase}/tastemind`, {
+          path: "/socket.io",
+          transports: ["polling", "websocket"],
+          reconnection: true,
+          reconnectionDelay: 5000,
+          reconnectionAttempts: 1,
+          timeout: 8000,
+          withCredentials: true,
+        });
 
-    for (const event of SOCKET_EVENTS) {
-      socket.on(event, (data) => pushEvent(event, data));
-    }
+        socketRef.current = socket;
+
+        socket.on("connect", () => {
+          setIsConnected(true);
+          fetch("/api/auth/session", { credentials: "include" })
+            .then((r) => r.json())
+            .then((d) => {
+              const restaurantId = d?.restaurant?.id as string | undefined;
+              if (restaurantId) socket.emit("subscribe_restaurant", { restaurantId });
+            })
+            .catch(() => {});
+        });
+
+        socket.on("disconnect", () => setIsConnected(false));
+
+        for (const event of SOCKET_EVENTS) {
+          socket.on(event, (data) => pushEvent(event, data));
+        }
+
+        cleanupSocket = () => {
+          socket.removeAllListeners();
+          socket.disconnect();
+          socketRef.current = null;
+          setIsConnected(false);
+        };
+      });
+    }, WS_DEFER_MS);
 
     return () => {
-      socket.removeAllListeners();
-      socket.disconnect();
-      socketRef.current = null;
-      setIsConnected(false);
+      cancelled = true;
+      window.clearTimeout(timer);
+      cleanupSocket?.();
     };
   }, [pushEvent]);
 

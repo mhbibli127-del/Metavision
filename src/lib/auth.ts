@@ -37,7 +37,10 @@ export function getDemoEmail(firstName: string, lastName: string): string {
 }
 
 export async function fetchSession(): Promise<UserSession | null> {
-  const response = await fetch("/api/auth/session", { cache: "no-store" });
+  const response = await fetch("/api/auth/session", {
+    cache: "no-store",
+    credentials: "include",
+  });
   if (!response.ok) return null;
   const data = (await response.json()) as { user: UserSession | null };
   return data.user;

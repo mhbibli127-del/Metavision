@@ -8,7 +8,6 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { useRouter } from "next/navigation";
 import { fetchSession, getDemoEmail, getInitials } from "@/lib/auth";
 import type { UserSession } from "@/lib/auth-types";
 
@@ -21,30 +20,22 @@ type DashboardSessionContextValue = {
 
 const DashboardSessionContext = createContext<DashboardSessionContextValue | null>(null);
 
-export function DashboardSessionProvider({ children }: { children: ReactNode }) {
-  const router = useRouter();
-  const [user, setUser] = useState<UserSession | null | undefined>(undefined);
+export function DashboardSessionProvider({
+  children,
+  initialUser,
+}: {
+  children: ReactNode;
+  initialUser: UserSession;
+}) {
+  const [user, setUser] = useState<UserSession>(initialUser);
 
   useEffect(() => {
-    let cancelled = false;
-
-    void (async () => {
-      const session = await fetchSession();
-      if (cancelled) return;
-      if (!session) {
-        router.replace("/login");
-        return;
-      }
-      setUser(session);
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [router]);
+    void fetchSession().then((session) => {
+      if (session) setUser(session);
+    });
+  }, []);
 
   const value = useMemo(() => {
-    if (!user) return null;
     const displayName = `${user.firstName} ${user.lastName}`.trim() || "User";
     return {
       user,
@@ -53,16 +44,6 @@ export function DashboardSessionProvider({ children }: { children: ReactNode }) 
       initials: getInitials(user.firstName, user.lastName),
     };
   }, [user]);
-
-  if (user === undefined) {
-    return (
-      <div className="dash-page" style={{ padding: 24 }}>
-        <p className="tm-subtitle">Yüklənir…</p>
-      </div>
-    );
-  }
-
-  if (!value) return null;
 
   return (
     <DashboardSessionContext.Provider value={value}>{children}</DashboardSessionContext.Provider>
