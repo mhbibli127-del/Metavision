@@ -395,6 +395,11 @@
   animation: ds-pulse 1.5s ease infinite;
 }
 
+.dash-realtime-dot.is-connecting {
+  background: var(--ds-warning);
+  animation: ds-pulse 1s ease infinite;
+}
+
 /* Unify dark TasteMind pages → light SaaS */
 .tm-page {
   background: var(--ds-bg) !important;

@@ -10,7 +10,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { resolveWebSocketBaseUrl } from "@/lib/ws-config";
+import { getWebSocketConfigState, resolveWebSocketBaseUrl } from "@/lib/ws-config";
 
 export type RealtimeEventType =
   | "order_update"
@@ -34,14 +34,18 @@ export interface RealtimeEvent {
   timestamp: Date;
 }
 
+export type RealtimeConnectionStatus = "disabled" | "connecting" | "live" | "offline";
+
 type RealtimeContextValue = {
   isConnected: boolean;
+  connectionStatus: RealtimeConnectionStatus;
   lastEvent: RealtimeEvent | null;
   emitEvent: (type: string, data: unknown) => void;
 };
 
 const RealtimeContext = createContext<RealtimeContextValue>({
   isConnected: false,
+  connectionStatus: "disabled",
   lastEvent: null,
   emitEvent: () => {},
 });
@@ -63,14 +67,18 @@ const SOCKET_EVENTS: RealtimeEventType[] = [
   "connected",
 ];
 
-const WS_DEFER_MS = 4000;
+const WS_DEFER_MS = 2000;
 
 export function RealtimeProvider({ children }: { children: ReactNode }) {
-  const [isConnected, setIsConnected] = useState(false);
-  const [lastEvent, setLastEvent] = useState<RealtimeEvent | null>(null);
-  const socketRef = useRef<{ connected: boolean; emit: (e: string, d: unknown) => void; disconnect: () => void } | null>(
-    null,
+  const [connectionStatus, setConnectionStatus] = useState<RealtimeConnectionStatus>(() =>
+    getWebSocketConfigState() === "ready" ? "connecting" : "disabled",
   );
+  const [lastEvent, setLastEvent] = useState<RealtimeEvent | null>(null);
+  const socketRef = useRef<{
+    connected: boolean;
+    emit: (e: string, d: unknown) => void;
+    disconnect: () => void;
+  } | null>(null);
 
   const pushEvent = useCallback((type: RealtimeEventType, data: unknown) => {
     setLastEvent({ type, data, timestamp: new Date() });
@@ -78,7 +86,12 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const httpBase = resolveWebSocketBaseUrl();
-    if (!httpBase) return;
+    if (!httpBase) {
+      setConnectionStatus("disabled");
+      return;
+    }
+
+    setConnectionStatus("connecting");
 
     let cancelled = false;
     let cleanupSocket: (() => void) | undefined;
@@ -91,16 +104,17 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
           path: "/socket.io",
           transports: ["polling", "websocket"],
           reconnection: true,
-          reconnectionDelay: 5000,
-          reconnectionAttempts: 1,
-          timeout: 8000,
+          reconnectionDelay: 3000,
+          reconnectionDelayMax: 10000,
+          reconnectionAttempts: 5,
+          timeout: 12000,
           withCredentials: true,
         });
 
         socketRef.current = socket;
 
         socket.on("connect", () => {
-          setIsConnected(true);
+          setConnectionStatus("live");
           fetch("/api/auth/session", { credentials: "include" })
             .then((r) => r.json())
             .then((d) => {
@@ -110,7 +124,8 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
             .catch(() => {});
         });
 
-        socket.on("disconnect", () => setIsConnected(false));
+        socket.on("disconnect", () => setConnectionStatus("offline"));
+        socket.on("connect_error", () => setConnectionStatus("offline"));
 
         for (const event of SOCKET_EVENTS) {
           socket.on(event, (data) => pushEvent(event, data));
@@ -120,7 +135,6 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
           socket.removeAllListeners();
           socket.disconnect();
           socketRef.current = null;
-          setIsConnected(false);
         };
       });
     }, WS_DEFER_MS);
@@ -138,9 +152,11 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const isConnected = connectionStatus === "live";
+
   const value = useMemo(
-    () => ({ isConnected, lastEvent, emitEvent }),
-    [isConnected, lastEvent, emitEvent],
+    () => ({ isConnected, connectionStatus, lastEvent, emitEvent }),
+    [isConnected, connectionStatus, lastEvent, emitEvent],
   );
 
   return <RealtimeContext.Provider value={value}>{children}</RealtimeContext.Provider>;
