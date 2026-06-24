@@ -11,30 +11,39 @@ const globalCache = globalThis as typeof globalThis & { mongooseCache?: Mongoose
 const cached: MongooseCache = globalCache.mongooseCache ?? { conn: null, promise: null };
 globalCache.mongooseCache = cached;
 
-/** Windows home routers often refuse Node SRV lookups — set fallbacks at import time. */
-function bootstrapMongoDns(): void {
-  const uri = getConnectionUri();
+function resolveConnectionUri(): string | null {
+  const direct = process.env.MONGODB_URI_DIRECT?.trim();
+  if (direct) return direct;
+  const uri = process.env.MONGODB_URI?.trim();
+  return uri || null;
+}
+
+/** Windows home routers often refuse Node SRV lookups — set fallbacks when using Atlas SRV. */
+function bootstrapMongoDns(uri: string): void {
   if (!uri.startsWith("mongodb+srv://")) return;
   dns.setServers([...new Set([...dns.getServers(), "8.8.8.8", "1.1.1.1", "1.0.0.1"])]);
 }
 
-function getConnectionUri(): string {
-  const direct = process.env.MONGODB_URI_DIRECT?.trim();
-  if (direct) return direct;
-  const uri = process.env.MONGODB_URI?.trim();
-  if (!uri) throw new Error("MONGODB_URI is required");
-  return uri;
-}
+/**
+ * Lazy MongoDB connection. Returns null when MONGODB_URI is unset (build / Vercel static phase).
+ */
+export async function connectDb(): Promise<typeof mongoose | null> {
+  const uri = resolveConnectionUri();
 
-bootstrapMongoDns();
+  if (!uri) {
+    console.warn("⚠️ MONGODB_URI not set — skipping MongoDB connection");
+    return null;
+  }
 
-export async function connectDb(): Promise<typeof mongoose> {
-  const uri = getConnectionUri();
+  bootstrapMongoDns(uri);
+
   if (cached.conn) return cached.conn;
+
   if (!cached.promise) {
     cached.promise = mongoose
       .connect(uri, {
         dbName: process.env.MONGODB_DB_NAME || "metavision",
+        bufferCommands: false,
         serverSelectionTimeoutMS: 15_000,
         family: 4,
       })
@@ -44,11 +53,21 @@ export async function connectDb(): Promise<typeof mongoose> {
         throw err;
       });
   }
-  cached.conn = await cached.promise;
+
+  try {
+    cached.conn = await cached.promise;
+  } catch (err) {
+    cached.promise = null;
+    throw err;
+  }
+
   return cached.conn;
 }
 
-/** Returns null when MongoDB is unreachable (build / offline). */
+/** Alias for connectDb */
+export const connectMongo = connectDb;
+
+/** Returns null when MongoDB is unreachable or not configured. */
 export async function tryConnectDb(): Promise<typeof mongoose | null> {
   try {
     return await connectDb();

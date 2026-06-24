@@ -1,4 +1,4 @@
-import { connectDb } from "@/lib/mongodb";
+import { tryConnectDb } from "@/lib/mongodb";
 import { MarketTrendModel, CompetitorRestaurantModel, docs } from "@/lib/models";
 import type { TrendPayload } from "@/services/trends/types";
 
@@ -27,7 +27,18 @@ export async function fetchFallbackSocialSignals(): Promise<{
   news: TrendPayload;
   foodSignals: string[];
 }> {
-  await connectDb();
+  const now = new Date().toISOString();
+  const meta = { provider: "metavision_db_fallback" };
+
+  const db = await tryConnectDb();
+  if (!db) {
+    return {
+      x: { source: "x", trends: FALLBACK_HASHTAGS.slice(0, 12), updatedAt: now, meta },
+      tiktok: { source: "tiktok", trends: FALLBACK_HASHTAGS.slice(0, 15), updatedAt: now, meta },
+      news: { source: "news", trends: FALLBACK_HEADLINES, updatedAt: now, meta },
+      foodSignals: [...FALLBACK_HASHTAGS.slice(0, 6), ...FALLBACK_HEADLINES.slice(0, 3)],
+    };
+  }
 
   const [trends, competitors] = await Promise.all([
     MarketTrendModel.find().sort({ momentum: -1 }).limit(6).lean(),
@@ -47,9 +58,6 @@ export async function fetchFallbackSocialSignals(): Promise<{
     ...FALLBACK_HEADLINES,
     ...compNames.map((n) => `${n} — rəqib monitorinqi aktiv`),
   ].slice(0, 12);
-
-  const now = new Date().toISOString();
-  const meta = { provider: "metavision_db_fallback" };
 
   return {
     x: { source: "x", trends: hashtags.slice(0, 12), updatedAt: now, meta },
