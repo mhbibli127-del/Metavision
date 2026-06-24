@@ -16,8 +16,12 @@ import { RedisService } from '@/config/queue/redis.service';
  * Broadcasts: trends, signals, incidents, order updates, insight events.
  */
 @WebSocketGateway({
-  cors: { origin: process.env.WS_ORIGIN || '*', credentials: false },
+  cors: {
+    origin: process.env.WS_ORIGIN?.split(',').map((o) => o.trim()) ?? true,
+    credentials: true,
+  },
   namespace: '/tastemind',
+  transports: ['polling', 'websocket'],
 })
 export class TasteMindGateway implements OnGatewayConnection, OnGatewayDisconnect {
   private readonly logger = new Logger(TasteMindGateway.name);

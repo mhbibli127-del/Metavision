@@ -1,7 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { io, Socket } from "socket.io-client";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
+import { io, type Socket } from "socket.io-client";
 import { resolveWebSocketBaseUrl } from "@/lib/ws-config";
 
 export type RealtimeEventType =
@@ -20,7 +28,19 @@ export interface RealtimeEvent {
   timestamp: Date;
 }
 
-export function useRealtimeUpdates() {
+type RealtimeContextValue = {
+  isConnected: boolean;
+  lastEvent: RealtimeEvent | null;
+  emitEvent: (type: string, data: unknown) => void;
+};
+
+const RealtimeContext = createContext<RealtimeContextValue>({
+  isConnected: false,
+  lastEvent: null,
+  emitEvent: () => {},
+});
+
+export function RealtimeProvider({ children }: { children: ReactNode }) {
   const [isConnected, setIsConnected] = useState(false);
   const [lastEvent, setLastEvent] = useState<RealtimeEvent | null>(null);
   const [socket, setSocket] = useState<Socket | null>(null);
@@ -35,10 +55,11 @@ export function useRealtimeUpdates() {
 
     const newSocket = io(`${httpBase}/tastemind`, {
       path: "/socket.io",
-      transports: ["websocket", "polling"],
+      transports: ["polling", "websocket"],
       reconnection: true,
-      reconnectionDelay: 1000,
-      reconnectionAttempts: 3,
+      reconnectionDelay: 2000,
+      reconnectionAttempts: 2,
+      timeout: 8000,
     });
 
     newSocket.on("connect", () => {
@@ -72,15 +93,28 @@ export function useRealtimeUpdates() {
 
     setSocket(newSocket);
     return () => {
+      newSocket.removeAllListeners();
       newSocket.disconnect();
     };
   }, [pushEvent]);
 
-  const emitEvent = (type: string, data: unknown) => {
-    if (socket?.connected) socket.emit(type, data);
-  };
+  const emitEvent = useCallback(
+    (type: string, data: unknown) => {
+      if (socket?.connected) socket.emit(type, data);
+    },
+    [socket],
+  );
 
-  return { isConnected, lastEvent, emitEvent };
+  const value = useMemo(
+    () => ({ isConnected, lastEvent, emitEvent }),
+    [isConnected, lastEvent, emitEvent],
+  );
+
+  return <RealtimeContext.Provider value={value}>{children}</RealtimeContext.Provider>;
+}
+
+export function useRealtimeUpdates() {
+  return useContext(RealtimeContext);
 }
 
 export function useRealtimeEvent<T>(eventType: RealtimeEventType) {

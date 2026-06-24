@@ -329,12 +329,14 @@
   background: rgb(0 0 0 / 40%);
   z-index: 45;
   opacity: 0;
+  pointer-events: none;
   transition: opacity var(--ds-duration-slow) var(--ds-ease);
 }
 
 .dash-sidebar-backdrop.is-visible {
   display: block;
   opacity: 1;
+  pointer-events: auto;
 }
 
 .dash-mobile-menu-btn {

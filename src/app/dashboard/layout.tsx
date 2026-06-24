@@ -4,6 +4,7 @@ import DashboardTopBar from "@/components/dashboard/DashboardTopBar";
 import TasteMindProvider from "@/components/dashboard/tastemind/TasteMindProvider";
 import RealtimeIndicator from "@/components/dashboard/RealtimeIndicator";
 import TokenRefresh from "@/components/dashboard/TokenRefresh";
+import { RealtimeProvider } from "@/lib/realtime-context";
 import { CurrencyProvider } from "@/lib/currency-context";
 import { DashboardShellProvider } from "@/lib/dashboard-shell-context";
 import { ToastProvider } from "@/lib/toast-context";
@@ -34,7 +35,9 @@ export default function DashboardLayout({
                 <main className="dash-main">
                   <DashboardTopBar />
                   <DashboardAuthGate>
-                    <TasteMindProvider>{children}</TasteMindProvider>
+                    <RealtimeProvider>
+                      <TasteMindProvider>{children}</TasteMindProvider>
+                    </RealtimeProvider>
                   </DashboardAuthGate>
                   <RealtimeIndicator />
                 </main>

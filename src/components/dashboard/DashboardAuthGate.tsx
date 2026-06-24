@@ -22,10 +22,16 @@ export default function DashboardAuthGate({
       setReady(true);
     }
 
-    checkSession();
+    void checkSession();
   }, [router]);
 
-  if (!ready) return null;
+  if (!ready) {
+    return (
+      <div className="dash-page" style={{ padding: 24 }}>
+        <p className="tm-subtitle">Yüklənir…</p>
+      </div>
+    );
+  }
 
   return <>{children}</>;
 }

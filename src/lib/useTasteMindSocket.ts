@@ -18,8 +18,7 @@ type WsEvent =
 type WsHandler = (payload: unknown) => void;
 
 /**
- * useTasteMindSocket — lightweight WebSocket client for TasteMind real-time feed.
- * Falls back silently when WS server is unavailable (dev mode without backend).
+ * TasteMind WebSocket — handlers stored in ref to avoid reconnect loop on every render.
  */
 export function useTasteMindSocket(
   restaurantId?: string | null,
@@ -29,6 +28,8 @@ export function useTasteMindSocket(
   const handlersRef = useRef(handlers);
   handlersRef.current = handlers;
 
+  const enabled = handlers !== null;
+
   const send = useCallback((event: string, data: object) => {
     if (socketRef.current?.connected) {
       socketRef.current.emit(event, data);
@@ -36,24 +37,24 @@ export function useTasteMindSocket(
   }, []);
 
   useEffect(() => {
-    if (handlers === null) return;
+    if (!enabled) return;
 
     const httpBase = resolveWebSocketBaseUrl();
     if (!httpBase) return;
 
     const socket = io(`${httpBase}/tastemind`, {
       path: "/socket.io",
-      transports: ["websocket"],
+      transports: ["polling", "websocket"],
       reconnection: true,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
-      reconnectionAttempts: 3,
+      reconnectionDelay: 2000,
+      reconnectionDelayMax: 8000,
+      reconnectionAttempts: 2,
+      timeout: 8000,
     });
     socketRef.current = socket;
 
     socket.on("connect", () => {
-      const connectedHandler = handlersRef.current?.connected;
-      if (connectedHandler) connectedHandler({});
+      handlersRef.current?.connected?.({});
       if (restaurantId) {
         socket.emit("subscribe_restaurant", { restaurantId });
       }
@@ -73,16 +74,16 @@ export function useTasteMindSocket(
 
     for (const evt of events) {
       socket.on(evt, (payload: unknown) => {
-        const handler = handlersRef.current?.[evt];
-        if (handler) handler(payload);
+        handlersRef.current?.[evt]?.(payload);
       });
     }
 
     return () => {
+      socket.removeAllListeners();
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [restaurantId, handlers]);
+  }, [restaurantId, enabled]);
 
   return { send };
 }

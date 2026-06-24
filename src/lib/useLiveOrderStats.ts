@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useDisplayCurrency } from "@/lib/currency-context";
-import { useRealtimeUpdates } from "@/lib/useRealtimeUpdates";
+import { useRealtimeUpdates } from "@/lib/realtime-context";
 import type { Currency } from "@/lib/prisma-types";
 
 type OrderStats = {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRealtimeUpdates } from "@/lib/useRealtimeUpdates";
+import { useRealtimeUpdates } from "@/lib/realtime-context";
 
 export default function RealtimeIndicator() {
   const { isConnected } = useRealtimeUpdates();
