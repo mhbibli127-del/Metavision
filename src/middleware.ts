@@ -9,10 +9,18 @@ import {
 } from "@/lib/auth-tokens";
 import { rateLimit } from "@/lib/rate-limit";
 
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Credentials": "true",
+  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With",
+};
+
 const RATE_LIMIT_SKIP = [
   "/api/subscription/webhook",
   "/api/meta-ads/callback",
   "/api/auth/sso/",
+  "/api/health",
 ];
 
 function shouldRateLimitApi(pathname: string): boolean {
@@ -20,8 +28,25 @@ function shouldRateLimitApi(pathname: string): boolean {
   return !RATE_LIMIT_SKIP.some((p) => pathname.startsWith(p));
 }
 
+function withCors(response: NextResponse): NextResponse {
+  Object.entries(CORS_HEADERS).forEach(([key, value]) => {
+    response.headers.set(key, value);
+  });
+  return response;
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // Handle CORS preflight for all API routes
+  if (request.method === "OPTIONS" && pathname.startsWith("/api/")) {
+    return new NextResponse(null, { status: 204, headers: CORS_HEADERS });
+  }
+
+  // Health check — bypass auth and rate limiting
+  if (pathname === "/api/health") {
+    return withCors(NextResponse.next());
+  }
 
   if (shouldRateLimitApi(pathname)) {
     const ip =
@@ -30,9 +55,11 @@ export async function middleware(request: NextRequest) {
       "unknown";
     const limited = rateLimit(`api:${ip}`, 120, 60_000);
     if (!limited.ok) {
-      return NextResponse.json(
-        { error: `Rate limit exceeded. Retry in ${limited.retryAfter}s` },
-        { status: 429 },
+      return withCors(
+        NextResponse.json(
+          { error: `Rate limit exceeded. Retry in ${limited.retryAfter}s` },
+          { status: 429 },
+        ),
       );
     }
   }
@@ -198,7 +225,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/dashboard/command-center", request.url));
   }
 
-  return NextResponse.next();
+  return withCors(NextResponse.next());
 }
 
 export const config = {
