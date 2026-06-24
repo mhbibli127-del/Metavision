@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -20,7 +21,13 @@ export type RealtimeEventType =
   | "menu_update"
   | "inventory_update"
   | "staff_update"
-  | "notification";
+  | "notification"
+  | "trends_update"
+  | "signals_update"
+  | "insight_event"
+  | "incident_detected"
+  | "market_alert"
+  | "connected";
 
 export interface RealtimeEvent {
   type: RealtimeEventType;
@@ -40,10 +47,27 @@ const RealtimeContext = createContext<RealtimeContextValue>({
   emitEvent: () => {},
 });
 
+const SOCKET_EVENTS: RealtimeEventType[] = [
+  "order_update",
+  "order_updated",
+  "table_update",
+  "reservation_update",
+  "menu_update",
+  "inventory_update",
+  "staff_update",
+  "notification",
+  "trends_update",
+  "signals_update",
+  "insight_event",
+  "incident_detected",
+  "market_alert",
+  "connected",
+];
+
 export function RealtimeProvider({ children }: { children: ReactNode }) {
   const [isConnected, setIsConnected] = useState(false);
   const [lastEvent, setLastEvent] = useState<RealtimeEvent | null>(null);
-  const [socket, setSocket] = useState<Socket | null>(null);
+  const socketRef = useRef<Socket | null>(null);
 
   const pushEvent = useCallback((type: RealtimeEventType, data: unknown) => {
     setLastEvent({ type, data, timestamp: new Date() });
@@ -53,57 +77,49 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     const httpBase = resolveWebSocketBaseUrl();
     if (!httpBase) return;
 
-    const newSocket = io(`${httpBase}/tastemind`, {
+    const socket = io(`${httpBase}/tastemind`, {
       path: "/socket.io",
       transports: ["polling", "websocket"],
       reconnection: true,
-      reconnectionDelay: 2000,
+      reconnectionDelay: 3000,
       reconnectionAttempts: 2,
-      timeout: 8000,
+      timeout: 10000,
+      withCredentials: true,
     });
+    socketRef.current = socket;
 
-    newSocket.on("connect", () => {
+    socket.on("connect", () => {
       setIsConnected(true);
       fetch("/api/auth/session")
         .then((r) => r.json())
         .then((d) => {
           const restaurantId = d?.restaurant?.id as string | undefined;
           if (restaurantId) {
-            newSocket.emit("subscribe_restaurant", { restaurantId });
+            socket.emit("subscribe_restaurant", { restaurantId });
           }
         })
         .catch(() => {});
     });
 
-    newSocket.on("disconnect", () => setIsConnected(false));
+    socket.on("disconnect", () => setIsConnected(false));
 
-    const handlers: RealtimeEventType[] = [
-      "order_update",
-      "table_update",
-      "reservation_update",
-      "menu_update",
-      "inventory_update",
-      "staff_update",
-      "notification",
-    ];
-
-    for (const event of handlers) {
-      newSocket.on(event, (data) => pushEvent(event, data));
+    for (const event of SOCKET_EVENTS) {
+      socket.on(event, (data) => pushEvent(event, data));
     }
 
-    setSocket(newSocket);
     return () => {
-      newSocket.removeAllListeners();
-      newSocket.disconnect();
+      socket.removeAllListeners();
+      socket.disconnect();
+      socketRef.current = null;
+      setIsConnected(false);
     };
   }, [pushEvent]);
 
-  const emitEvent = useCallback(
-    (type: string, data: unknown) => {
-      if (socket?.connected) socket.emit(type, data);
-    },
-    [socket],
-  );
+  const emitEvent = useCallback((type: string, data: unknown) => {
+    if (socketRef.current?.connected) {
+      socketRef.current.emit(type, data);
+    }
+  }, []);
 
   const value = useMemo(
     () => ({ isConnected, lastEvent, emitEvent }),

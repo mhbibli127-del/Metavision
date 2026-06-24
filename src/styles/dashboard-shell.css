@@ -16,12 +16,17 @@
   display: flex;
   flex-direction: column;
   overflow-x: hidden;
+  position: relative;
+  z-index: 1;
+  isolation: isolate;
 }
 
 .dash-page {
   box-sizing: border-box;
   padding: var(--ds-space-6) var(--ds-space-8) var(--ds-space-12);
   flex: 1;
+  position: relative;
+  z-index: 1;
 }
 
 /* Sidebar — light, Linear-style */
@@ -323,19 +328,11 @@
 
 /* Mobile sidebar */
 .dash-sidebar-backdrop {
-  display: none;
+  display: block;
   position: fixed;
   inset: 0;
   background: rgb(0 0 0 / 40%);
   z-index: 45;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity var(--ds-duration-slow) var(--ds-ease);
-}
-
-.dash-sidebar-backdrop.is-visible {
-  display: block;
-  opacity: 1;
   pointer-events: auto;
 }
 

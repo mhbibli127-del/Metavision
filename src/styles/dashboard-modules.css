@@ -311,10 +311,6 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .dash-sidebar {
-    display: none;
-  }
-
   .dash-topbar {
     padding: 12px 16px;
   }

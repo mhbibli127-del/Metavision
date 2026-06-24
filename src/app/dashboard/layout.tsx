@@ -5,6 +5,7 @@ import TasteMindProvider from "@/components/dashboard/tastemind/TasteMindProvide
 import RealtimeIndicator from "@/components/dashboard/RealtimeIndicator";
 import TokenRefresh from "@/components/dashboard/TokenRefresh";
 import { RealtimeProvider } from "@/lib/realtime-context";
+import { DashboardSessionProvider } from "@/lib/dashboard-session-context";
 import { CurrencyProvider } from "@/lib/currency-context";
 import { DashboardShellProvider } from "@/lib/dashboard-shell-context";
 import { ToastProvider } from "@/lib/toast-context";
@@ -29,6 +30,7 @@ export default function DashboardLayout({
           <ConfirmProvider>
           <CurrencyProvider>
             <DashboardShellProvider>
+              <DashboardSessionProvider>
               <div className="dash-shell">
                 <TokenRefresh />
                 <DashboardSidebar />
@@ -42,6 +44,7 @@ export default function DashboardLayout({
                   <RealtimeIndicator />
                 </main>
               </div>
+              </DashboardSessionProvider>
             </DashboardShellProvider>
           </CurrencyProvider>
           </ConfirmProvider>

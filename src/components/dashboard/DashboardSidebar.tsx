@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { fetchSession, getDemoEmail, getInitials, logoutSession } from "@/lib/auth";
+import { logoutSession } from "@/lib/auth";
+import { useDashboardSession } from "@/lib/dashboard-session-context";
 import { useDashboardShell } from "@/lib/dashboard-shell-context";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import UserProfileEdit from "@/components/dashboard/UserProfileEdit";
-import { Skeleton } from "@/components/ui";
 import { useI18n } from "@/lib/i18n-context";
 
 const intelligenceNavItems = [
@@ -137,47 +137,13 @@ function SignOutIcon() {
   );
 }
 
-function SidebarSkeleton() {
-  return (
-    <aside className="dash-sidebar">
-      <div className="dash-sidebar-top" style={{ gap: 16, padding: 8 }}>
-        <Skeleton style={{ height: 40, width: "100%" }} />
-        <Skeleton style={{ height: 72, width: "100%" }} />
-        {Array.from({ length: 8 }).map((_, i) => (
-          <Skeleton key={i} style={{ height: 36, width: "100%" }} />
-        ))}
-      </div>
-    </aside>
-  );
-}
-
 export default function DashboardSidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { sidebarOpen, closeSidebar } = useDashboardShell();
   const { t, locale, setLocale } = useI18n();
-  const [ready, setReady] = useState(false);
-  const [displayName, setDisplayName] = useState("User");
-  const [email, setEmail] = useState("user@gmail.com");
-  const [phone, setPhone] = useState("");
-  const [initials, setInitials] = useState("MV");
-
-  useEffect(() => {
-    async function loadUser() {
-      const user = await fetchSession();
-      if (!user) {
-        router.replace("/login");
-        return;
-      }
-      setDisplayName(`${user.firstName} ${user.lastName}`.trim() || "User");
-      setEmail(getDemoEmail(user.firstName, user.lastName));
-      setPhone(user.phone);
-      setInitials(getInitials(user.firstName, user.lastName));
-      setReady(true);
-    }
-
-    loadUser();
-  }, [router]);
+  const { displayName, email, initials, user } = useDashboardSession();
+  const phone = user.phone;
 
   useEffect(() => {
     closeSidebar();
@@ -188,15 +154,15 @@ export default function DashboardSidebar() {
     router.push("/login");
   }
 
-  if (!ready) return <SidebarSkeleton />;
-
   return (
     <>
-      <div
-        className={`dash-sidebar-backdrop${sidebarOpen ? " is-visible" : ""}`}
-        onClick={closeSidebar}
-        aria-hidden="true"
-      />
+      {sidebarOpen ? (
+        <div
+          className="dash-sidebar-backdrop is-visible"
+          onClick={closeSidebar}
+          aria-hidden="true"
+        />
+      ) : null}
       <aside className={`dash-sidebar${sidebarOpen ? " is-open" : ""}`}>
         <div className="dash-sidebar-top">
           <Link href="/" className="dash-brand">
