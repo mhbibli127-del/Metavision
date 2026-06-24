@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { getAiBackendUrl } from "@/lib/ai-backend-config";
-import { getWebSocketConfigState, isWebSocketEnabled } from "@/lib/ws-config";
+import { getServerWebSocketConfig, isWebSocketEnabled } from "@/lib/ws-config";
 
 /** Quick check: is NestJS up and is WS configured on this deployment? */
 export async function GET() {
   const backend = getAiBackendUrl();
+  const ws = getServerWebSocketConfig();
   let backendOk = false;
   let backendError: string | undefined;
 
@@ -21,14 +22,17 @@ export async function GET() {
 
   return NextResponse.json({
     wsEnabled: isWebSocketEnabled(),
-    wsConfigured: getWebSocketConfigState() === "ready",
+    wsConfigured: ws.enabled && Boolean(ws.httpBase),
+    httpBase: ws.httpBase,
     backendUrl: backend,
     backendOk,
     backendError,
     hint: !isWebSocketEnabled()
-      ? "Set NEXT_PUBLIC_ENABLE_WS=true on Vercel and redeploy"
-      : !backendOk
-        ? "Railway NestJS is down or URL wrong — check AI_BACKEND_URL"
-        : "Set Railway WS_ORIGIN to your Vercel domain",
+      ? "Set NEXT_PUBLIC_ENABLE_WS=true (or ENABLE_WS=true) on Vercel and redeploy"
+      : !ws.httpBase
+        ? "Set AI_BACKEND_URL on Vercel (server env)"
+        : !backendOk
+          ? "Railway NestJS is down or URL wrong"
+          : "Set Railway WS_ORIGIN to your Vercel domain",
   });
 }

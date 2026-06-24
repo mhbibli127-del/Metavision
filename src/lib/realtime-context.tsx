@@ -10,7 +10,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { getWebSocketConfigState, resolveWebSocketBaseUrl } from "@/lib/ws-config";
+import { fetchWebSocketConfig, isWsUrlAllowedOnClient } from "@/lib/ws-config";
 
 export type RealtimeEventType =
   | "order_update"
@@ -70,9 +70,7 @@ const SOCKET_EVENTS: RealtimeEventType[] = [
 const WS_DEFER_MS = 2000;
 
 export function RealtimeProvider({ children }: { children: ReactNode }) {
-  const [connectionStatus, setConnectionStatus] = useState<RealtimeConnectionStatus>(() =>
-    getWebSocketConfigState() === "ready" ? "connecting" : "disabled",
-  );
+  const [connectionStatus, setConnectionStatus] = useState<RealtimeConnectionStatus>("connecting");
   const [lastEvent, setLastEvent] = useState<RealtimeEvent | null>(null);
   const socketRef = useRef<{
     connected: boolean;
@@ -85,63 +83,67 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    const httpBase = resolveWebSocketBaseUrl();
-    if (!httpBase) {
-      setConnectionStatus("disabled");
-      return;
-    }
-
-    setConnectionStatus("connecting");
-
     let cancelled = false;
     let cleanupSocket: (() => void) | undefined;
+    let timer: ReturnType<typeof setTimeout> | undefined;
 
-    const timer = window.setTimeout(() => {
-      void import("socket.io-client").then(({ io }) => {
-        if (cancelled) return;
+    void fetchWebSocketConfig().then(({ enabled, httpBase }) => {
+      if (cancelled) return;
 
-        const socket = io(`${httpBase}/tastemind`, {
-          path: "/socket.io",
-          transports: ["polling", "websocket"],
-          reconnection: true,
-          reconnectionDelay: 3000,
-          reconnectionDelayMax: 10000,
-          reconnectionAttempts: 5,
-          timeout: 12000,
-          withCredentials: true,
+      if (!enabled || !httpBase || !isWsUrlAllowedOnClient(httpBase)) {
+        setConnectionStatus("disabled");
+        return;
+      }
+
+      setConnectionStatus("connecting");
+
+      timer = setTimeout(() => {
+        void import("socket.io-client").then(({ io }) => {
+          if (cancelled) return;
+
+          const socket = io(`${httpBase}/tastemind`, {
+            path: "/socket.io",
+            transports: ["polling", "websocket"],
+            reconnection: true,
+            reconnectionDelay: 3000,
+            reconnectionDelayMax: 10000,
+            reconnectionAttempts: 5,
+            timeout: 12000,
+            withCredentials: true,
+          });
+
+          socketRef.current = socket;
+
+          socket.on("connect", () => {
+            setConnectionStatus("live");
+            fetch("/api/auth/session", { credentials: "include" })
+              .then((r) => r.json())
+              .then((d) => {
+                const restaurantId = d?.restaurant?.id as string | undefined;
+                if (restaurantId) socket.emit("subscribe_restaurant", { restaurantId });
+              })
+              .catch(() => {});
+          });
+
+          socket.on("disconnect", () => setConnectionStatus("offline"));
+          socket.on("connect_error", () => setConnectionStatus("offline"));
+
+          for (const event of SOCKET_EVENTS) {
+            socket.on(event, (data) => pushEvent(event, data));
+          }
+
+          cleanupSocket = () => {
+            socket.removeAllListeners();
+            socket.disconnect();
+            socketRef.current = null;
+          };
         });
-
-        socketRef.current = socket;
-
-        socket.on("connect", () => {
-          setConnectionStatus("live");
-          fetch("/api/auth/session", { credentials: "include" })
-            .then((r) => r.json())
-            .then((d) => {
-              const restaurantId = d?.restaurant?.id as string | undefined;
-              if (restaurantId) socket.emit("subscribe_restaurant", { restaurantId });
-            })
-            .catch(() => {});
-        });
-
-        socket.on("disconnect", () => setConnectionStatus("offline"));
-        socket.on("connect_error", () => setConnectionStatus("offline"));
-
-        for (const event of SOCKET_EVENTS) {
-          socket.on(event, (data) => pushEvent(event, data));
-        }
-
-        cleanupSocket = () => {
-          socket.removeAllListeners();
-          socket.disconnect();
-          socketRef.current = null;
-        };
-      });
-    }, WS_DEFER_MS);
+      }, WS_DEFER_MS);
+    });
 
     return () => {
       cancelled = true;
-      window.clearTimeout(timer);
+      if (timer) clearTimeout(timer);
       cleanupSocket?.();
     };
   }, [pushEvent]);
