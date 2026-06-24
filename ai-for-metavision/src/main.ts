@@ -3,14 +3,14 @@ loadEnv();
 
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
+import { getHttpCorsOptions } from '@/config/cors-origins';
+import { SocketIoCorsAdapter } from '@/config/socket-io.adapter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  app.enableCors({
-    origin: process.env.WS_ORIGIN?.split(',').map((o) => o.trim()) ?? true,
-    credentials: true,
-  });
+  app.enableCors(getHttpCorsOptions());
+  app.useWebSocketAdapter(new SocketIoCorsAdapter(app));
 
   app.setGlobalPrefix('api');
 

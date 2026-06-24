@@ -10,16 +10,14 @@ import {
 import { Server, Socket } from 'socket.io';
 import { Logger } from '@nestjs/common';
 import { RedisService } from '@/config/queue/redis.service';
+import { getSocketCorsConfig } from '@/config/cors-origins';
 
 /**
  * TasteMindGateway — real-time WebSocket layer.
  * Broadcasts: trends, signals, incidents, order updates, insight events.
  */
 @WebSocketGateway({
-  cors: {
-    origin: process.env.WS_ORIGIN?.split(',').map((o) => o.trim()) ?? true,
-    credentials: true,
-  },
+  cors: getSocketCorsConfig(),
   namespace: '/tastemind',
   transports: ['polling', 'websocket'],
 })
