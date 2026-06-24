@@ -13,8 +13,8 @@ globalCache.mongooseCache = cached;
 
 /** Windows home routers often refuse Node SRV lookups — set fallbacks at import time. */
 function bootstrapMongoDns(): void {
-  const uri = getConnectionUri();
-  if (!uri.startsWith("mongodb+srv://")) return;
+  const uri = process.env.MONGODB_URI_DIRECT?.trim() || process.env.MONGODB_URI?.trim();
+  if (!uri || !uri.startsWith("mongodb+srv://")) return;
   dns.setServers([...new Set([...dns.getServers(), "8.8.8.8", "1.1.1.1", "1.0.0.1"])]);
 }
 
