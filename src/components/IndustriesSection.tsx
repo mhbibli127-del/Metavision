@@ -1,9 +1,12 @@
 import Image from "next/image";
 import IndustryCard from "@/components/IndustryCard";
-import { industries } from "@/data/industries";
+import { getSiteSection } from "@/lib/db/site";
 import { PARTNERS_LAYOUT } from "@/lib/partnersLayout";
+import type { Industry } from "@/data/industries";
 
-export default function IndustriesSection() {
+export default async function IndustriesSection() {
+  const industries = await getSiteSection<Industry>("industries");
+
   return (
     <section
       aria-labelledby="industries-heading"
@@ -22,10 +25,7 @@ export default function IndustriesSection() {
         <div className="industries-panel-overlay absolute inset-0" aria-hidden="true" />
 
         <div className={PARTNERS_LAYOUT.industries.inner}>
-          <h2
-            id="industries-heading"
-            className={PARTNERS_LAYOUT.industries.title}
-          >
+          <h2 id="industries-heading" className={PARTNERS_LAYOUT.industries.title}>
             Industries
           </h2>
 

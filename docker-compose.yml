@@ -1,0 +1,18 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: metavision-db
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: metavision
+      POSTGRES_PASSWORD: metavision
+      POSTGRES_DB: metavision
+    volumes:
+      - metavision_pg_data:/var/lib/postgresql/data
+
+volumes:
+  metavision_pg_data:

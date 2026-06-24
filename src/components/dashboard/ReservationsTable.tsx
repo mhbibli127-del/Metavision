@@ -1,8 +1,13 @@
+"use client";
+
 import type { Reservation } from "@/data/reservations";
+import { useI18n } from "@/lib/i18n-context";
 
 type ReservationsTableProps = {
   reservations: Reservation[];
   onCancel: (id: string) => void;
+  onDeposit?: (id: string, amount: number, paid: boolean) => void;
+  onSms?: (id: string) => void;
 };
 
 function TableBadge({ table, isVip }: { table: string; isVip: boolean }) {
@@ -20,20 +25,22 @@ function StatusBadge({ status }: { status: Reservation["status"] }) {
   return <span className={className}>{status}</span>;
 }
 
-export default function ReservationsTable({ reservations, onCancel }: ReservationsTableProps) {
+export default function ReservationsTable({ reservations, onCancel, onDeposit, onSms }: ReservationsTableProps) {
+  const { t } = useI18n();
+
   return (
     <div className="dash-table-wrap">
       <table className="dash-table dash-res-table">
         <thead>
           <tr>
-            <th scope="col">GUEST</th>
-            <th scope="col">PHONE</th>
-            <th scope="col">TABLE</th>
-            <th scope="col">GUESTS</th>
-            <th scope="col">DATE</th>
-            <th scope="col">TIME</th>
-            <th scope="col">STATUS</th>
-            <th scope="col">ACTION</th>
+            <th scope="col">{t("guestName")}</th>
+            <th scope="col">{t("phone")}</th>
+            <th scope="col">{t("tables")}</th>
+            <th scope="col">{t("guests")}</th>
+            <th scope="col">{t("reservations")}</th>
+            <th scope="col">{t("status")}</th>
+            <th scope="col">{t("deposit")}</th>
+            <th scope="col">{t("actions")}</th>
           </tr>
         </thead>
         <tbody>
@@ -48,25 +55,57 @@ export default function ReservationsTable({ reservations, onCancel }: Reservatio
               <td>
                 <div className="dash-res-date-cell">
                   <span>{reservation.date}</span>
-                  <span className="dash-res-day">{reservation.day}</span>
+                  <span className="dash-res-day">{reservation.day} · {reservation.time}</span>
                 </div>
               </td>
-              <td>{reservation.time}</td>
               <td>
                 <StatusBadge status={reservation.status} />
               </td>
               <td>
-                {reservation.status === "Confirmed" ? (
-                  <button
-                    type="button"
-                    className="dash-res-cancel-btn"
-                    onClick={() => onCancel(reservation.id)}
-                  >
-                    Cancel
-                  </button>
+                {onDeposit ? (
+                  <div className="dash-staff-filters" style={{ gap: 4 }}>
+                    <input
+                      type="number"
+                      min={0}
+                      className="dash-menu-search-input"
+                      style={{ width: 70 }}
+                      defaultValue={reservation.depositAmount ?? 0}
+                      onBlur={(e) =>
+                        onDeposit(reservation.id, Number(e.target.value), Boolean(reservation.depositPaid))
+                      }
+                    />
+                    <label>
+                      <input
+                        type="checkbox"
+                        defaultChecked={reservation.depositPaid}
+                        onChange={(e) =>
+                          onDeposit(reservation.id, reservation.depositAmount ?? 0, e.target.checked)
+                        }
+                      />{" "}
+                      {t("depositPaid")}
+                    </label>
+                  </div>
                 ) : (
-                  <span className="dash-res-cancel-disabled">—</span>
+                  <span>{reservation.depositAmount ?? 0} AZN</span>
                 )}
+              </td>
+              <td>
+                <div className="dash-staff-filters" style={{ gap: 4 }}>
+                  {reservation.status === "Confirmed" ? (
+                    <button
+                      type="button"
+                      className="dash-res-cancel-btn"
+                      onClick={() => onCancel(reservation.id)}
+                    >
+                      {t("cancelReservation")}
+                    </button>
+                  ) : null}
+                  {onSms && reservation.status === "Confirmed" && !reservation.smsReminderSent ? (
+                    <button type="button" className="dash-menu-btn-secondary" onClick={() => onSms(reservation.id)}>
+                      {t("sendSmsReminder")}
+                    </button>
+                  ) : null}
+                </div>
               </td>
             </tr>
           ))}

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import LandingBackground from "@/components/LandingBackground";
 import LoginForm from "@/components/LoginForm";
 
@@ -13,7 +14,9 @@ export default function LoginPage() {
       <section className="login-frame landing-frame" aria-label="Login">
         <LandingBackground />
         <div className="login-panel">
-          <LoginForm />
+          <Suspense fallback={null}>
+            <LoginForm />
+          </Suspense>
         </div>
       </section>
     </div>

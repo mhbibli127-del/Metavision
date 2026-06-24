@@ -4,9 +4,13 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
 const navItems = [
-  { label: "Dashboard", href: "/admin" },
-  { label: "Analytics", href: "/admin/analytics" },
+  { label: "Overview", href: "/admin" },
+  { label: "Restaurants", href: "/admin/restaurants" },
   { label: "Clients", href: "/admin/clients" },
+  { label: "AI Monitoring", href: "/admin/ai-monitoring" },
+  { label: "Billing", href: "/admin/billing" },
+  { label: "Analytics", href: "/admin/analytics" },
+  { label: "System", href: "/admin/system" },
 ] as const;
 
 export default function AdminSidebar() {
@@ -15,7 +19,7 @@ export default function AdminSidebar() {
 
   async function handleLogout() {
     await fetch("/api/auth/admin/logout", { method: "POST" });
-    router.push("/select-panel");
+    router.push("/login");
   }
 
   return (
@@ -26,11 +30,11 @@ export default function AdminSidebar() {
           <img src="/nav-logo.png" alt="" className="admin-brand-icon" width={36} height={36} />
           <div>
             <div className="admin-brand">METAVISION</div>
-            <div className="admin-brand-sub">&ldquo;AI THAT WORKS FOR YOUR BUSINESS&rdquo;</div>
+            <div className="admin-brand-sub">Control Tower</div>
           </div>
         </div>
 
-        <p className="admin-nav-heading">Main</p>
+        <p className="admin-nav-heading">Platform</p>
         <nav className="admin-nav" aria-label="Admin">
           {navItems.map((item) => {
             const active = pathname === item.href;
@@ -49,17 +53,6 @@ export default function AdminSidebar() {
       </div>
 
       <div className="admin-sidebar-footer">
-        <div className="admin-plan-card">
-          <div className="admin-plan-row">
-            <span className="admin-plan-avatar" aria-hidden="true">
-              A
-            </span>
-            <div>
-              <span className="admin-plan-title">Admin Panel</span>
-              <span className="admin-plan-sub">Gold Plan is Active</span>
-            </div>
-          </div>
-        </div>
         <button type="button" className="admin-signout" onClick={handleLogout}>
           Sign Out
         </button>

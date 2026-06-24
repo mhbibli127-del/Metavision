@@ -1,20 +1,42 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useState } from "react";
-import { useRouter } from "next/navigation";
+import { FormEvent, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { saveDevOtpHint } from "@/lib/auth";
 
 const fields = [
   { id: "firstName", label: "Ad", type: "text", autoComplete: "given-name" },
   { id: "lastName", label: "Soyad", type: "text", autoComplete: "family-name" },
   { id: "phone", label: "Nömrə", type: "tel", autoComplete: "tel" },
-  { id: "password", label: "Password", type: "password", autoComplete: "current-password" },
+  { id: "password", label: "Parol", type: "password", autoComplete: "current-password" },
 ] as const;
+
+type LoginMode = "password" | "otp";
 
 export default function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [mode, setMode] = useState<LoginMode>("password");
+  const [ssoGoogle, setSsoGoogle] = useState(false);
+  const [ssoSaml, setSsoSaml] = useState(false);
+
+  useEffect(() => {
+    const ssoErr = searchParams.get("error");
+    if (ssoErr === "sso_denied") setError("Google girişi ləğv edildi.");
+    else if (ssoErr === "sso_failed") setError("SSO girişi uğursuz oldu.");
+    else if (ssoErr === "sso_not_configured") setError("SSO konfiqurasiya edilməyib.");
+    else if (ssoErr === "sso_saml_scaffold") setError("SAML SSO hazırlanır — parol və ya WhatsApp OTP istifadə edin.");
+    fetch("/api/auth/sso/status")
+      .then((r) => r.json())
+      .then((d) => {
+        setSsoGoogle(Boolean(d.google));
+        setSsoSaml(Boolean(d.saml));
+      })
+      .catch(() => {});
+  }, [searchParams]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -30,6 +52,22 @@ export default function LoginForm() {
     };
 
     try {
+      if (mode === "otp") {
+        const response = await fetch("/api/auth/send-otp", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const data = (await response.json()) as { error?: string; demo?: boolean; devOtp?: string };
+        if (!response.ok) {
+          setError(data.error ?? "OTP göndərilmədi.");
+          return;
+        }
+        if (data.demo && data.devOtp) saveDevOtpHint(data.devOtp);
+        router.push("/login/verify");
+        return;
+      }
+
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -58,6 +96,15 @@ export default function LoginForm() {
         <p className="login-card-subtitle">Hesabınıza daxil olun</p>
       </div>
 
+      <div className="login-mode-tabs">
+        <button type="button" className={mode === "password" ? "is-active" : ""} onClick={() => setMode("password")}>
+          Parol
+        </button>
+        <button type="button" className={mode === "otp" ? "is-active" : ""} onClick={() => setMode("otp")}>
+          WhatsApp OTP
+        </button>
+      </div>
+
       <form className="login-form" onSubmit={handleSubmit}>
         <div className="login-form-grid">
           {fields.map((field) => (
@@ -80,8 +127,18 @@ export default function LoginForm() {
 
         <div className="login-form-actions">
           <button type="submit" className="login-submit-btn" disabled={loading}>
-            {loading ? "Giriş..." : "Login"}
+            {loading ? "Gözləyin..." : mode === "otp" ? "WhatsApp kodu göndər" : "Daxil ol"}
           </button>
+          {ssoGoogle ? (
+            <a href="/api/auth/sso/google" className="login-submit-btn login-submit-btn--secondary">
+              Google ilə daxil ol
+            </a>
+          ) : null}
+          {ssoSaml ? (
+            <a href="/api/auth/sso/saml" className="login-submit-btn login-submit-btn--secondary">
+              Enterprise SAML SSO
+            </a>
+          ) : null}
         </div>
       </form>
 

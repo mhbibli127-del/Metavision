@@ -1,0 +1,155 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  password  String
+  role      String   @default("user")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  restaurants Restaurant[]
+  orders      Order[]
+
+  @@map("users")
+}
+
+model Restaurant {
+  id        String   @id @default(cuid())
+  name      String
+  address   String?
+  phone     String?
+  ownerId   String
+  owner     User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  menuItems MenuItem[]
+  orders    Order[]
+
+  @@map("restaurants")
+}
+
+model MenuItem {
+  id           String   @id @default(cuid())
+  name         String
+  description  String?
+  price        Float
+  category     String?
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  orderItems OrderItem[]
+
+  @@map("menu_items")
+}
+
+model Order {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  totalPrice   Float    @default(0)
+  status       String   @default("pending")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  items OrderItem[]
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id       String @id @default(cuid())
+  orderId  String
+  order    Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuId   String
+  menuItem MenuItem @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  quantity Int    @default(1)
+  price    Float
+
+  @@map("order_items")
+}
+
+// ── Phase 1: Real-time intelligence data ──────────────────
+
+model TasteDnaSnapshot {
+  id           String   @id @default(cuid())
+  userId       String
+  scores       Json     // { spicy: 82, sweetSavory: 61, ... }
+  dnaIndex     Float
+  capturedAt   DateTime @default(now())
+
+  @@index([userId])
+  @@map("taste_dna_snapshots")
+}
+
+model GlobalTrendRecord {
+  id           String   @id @default(cuid())
+  city         String
+  region       String
+  cuisine      String
+  momentum     Float
+  demandChange Float
+  confidence   Float
+  source       String   @default("ingestion")
+  recordedAt   DateTime @default(now())
+
+  @@index([city])
+  @@index([recordedAt])
+  @@map("global_trend_records")
+}
+
+model ContextSignalRecord {
+  id         String   @id @default(cuid())
+  key        String   // weather | time | location | social | economy
+  label      String
+  value      Float
+  unit       String
+  influence  String   // low | medium | high
+  source     String
+  capturedAt DateTime @default(now())
+
+  @@index([key])
+  @@index([capturedAt])
+  @@map("context_signal_records")
+}
+
+model InsightEvent {
+  id           String   @id @default(cuid())
+  text         String
+  severity     String   @default("info") // info | alert
+  linkedModule String
+  createdAt    DateTime @default(now())
+
+  @@index([createdAt])
+  @@map("insight_events")
+}
+
+model IncidentRecord {
+  id             String   @id @default(cuid())
+  restaurantId   String?
+  incident       String
+  effect         String
+  effectPercent  Float
+  recommendation String
+  resolved       Boolean  @default(false)
+  detectedAt     DateTime @default(now())
+
+  @@index([restaurantId])
+  @@map("incident_records")
+}

@@ -2,12 +2,9 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import {
   COOKIE_PENDING,
-  COOKIE_SESSION,
-  cookieOptions,
-  createSessionToken,
-  sessionCookieMaxAge,
   verifyPendingOtp,
 } from "@/lib/auth-tokens";
+import { completeUserLoginFromOtp } from "@/lib/auth/complete-login";
 
 export async function POST(request: Request) {
   try {
@@ -26,23 +23,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Kod yanlışdır və ya vaxtı bitib." }, { status: 401 });
     }
 
-    const sessionToken = await createSessionToken({
-      firstName: pending.firstName,
-      lastName: pending.lastName,
-      phone: pending.phone,
-    });
+    const result = await completeUserLoginFromOtp(
+      pending.firstName,
+      pending.lastName,
+      pending.phone,
+      pending.passwordHash ?? "",
+    );
 
-    cookieStore.set(COOKIE_SESSION, sessionToken, {
-      ...cookieOptions,
-      maxAge: sessionCookieMaxAge,
-    });
     cookieStore.delete(COOKIE_PENDING);
 
     return NextResponse.json({
       ok: true,
-      redirect: "/dashboard/orders",
+      redirect: result.redirect,
+      canChoosePanel: result.canChoosePanel,
     });
-  } catch {
+  } catch (err) {
+    console.error("Verify OTP error:", err);
     return NextResponse.json({ error: "Təsdiq alınmadı." }, { status: 500 });
   }
 }

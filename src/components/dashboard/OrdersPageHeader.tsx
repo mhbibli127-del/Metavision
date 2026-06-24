@@ -1,5 +1,8 @@
 "use client";
 
+import DashPageHeader from "@/components/dashboard/DashPageHeader";
+import { useI18n } from "@/lib/i18n-context";
+
 function RefreshIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
@@ -10,15 +13,13 @@ function RefreshIcon() {
 }
 
 export default function OrdersPageHeader() {
+  const { t } = useI18n();
+
   return (
-    <header className="dash-page-header">
-      <div>
-        <h1 className="dash-page-title">Orders</h1>
-        <p className="dash-page-subtitle">Manage and track all restaurant orders</p>
-      </div>
-      <button type="button" className="dash-refresh-btn" aria-label="Refresh orders">
+    <DashPageHeader titleKey="ordersTitle" subtitleKey="ordersSubtitle">
+      <button type="button" className="dash-refresh-btn" aria-label={t("refreshOrders")} onClick={() => window.location.reload()}>
         <RefreshIcon />
       </button>
-    </header>
+    </DashPageHeader>
   );
 }

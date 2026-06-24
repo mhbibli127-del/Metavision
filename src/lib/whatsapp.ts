@@ -65,3 +65,38 @@ export async function sendWhatsAppOtp(phone: string, otp: string): Promise<Whats
   const data = (await response.json()) as { sid?: string };
   return { sid: data.sid };
 }
+
+export async function sendWhatsAppMessage(phone: string, body: string): Promise<WhatsAppSendResult> {
+  const accountSid = process.env.TWILIO_ACCOUNT_SID;
+  const authToken = process.env.TWILIO_AUTH_TOKEN;
+  const from = process.env.TWILIO_WHATSAPP_FROM;
+  const to = formatWhatsAppPhone(phone);
+
+  if (!accountSid || !authToken || !from) {
+    if (process.env.NODE_ENV === "development") {
+      console.warn(`[WhatsApp demo] ${body} → ${to}`);
+      return { demo: true };
+    }
+    throw new Error("WhatsApp API konfiqurasiya edilməyib.");
+  }
+
+  const fromAddress = from.startsWith("whatsapp:") ? from : `whatsapp:${from}`;
+  const toAddress = to.startsWith("whatsapp:") ? to : `whatsapp:${to}`;
+  const params = new URLSearchParams({ From: fromAddress, To: toAddress, Body: body });
+
+  const response = await fetch(
+    `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${Buffer.from(`${accountSid}:${authToken}`).toString("base64")}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: params.toString(),
+    },
+  );
+
+  if (!response.ok) throw new Error("WhatsApp mesajı göndərilmədi.");
+  const data = (await response.json()) as { sid?: string };
+  return { sid: data.sid };
+}

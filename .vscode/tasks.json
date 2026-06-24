@@ -1,0 +1,69 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "verify-frontend-build",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"run",
+				"build"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "verify-backend-build",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"run",
+				"build"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "verify-frontend-build-2",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"run",
+				"build"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "verify-backend-build-2",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"--prefix",
+				"ai-for-metavision",
+				"run",
+				"build"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "verify-backend-build-3",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"--prefix",
+				"ai-for-metavision",
+				"run",
+				"build"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "verify-frontend-build-3",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"run",
+				"build"
+			],
+			"isBackground": false
+		}
+	]
+}

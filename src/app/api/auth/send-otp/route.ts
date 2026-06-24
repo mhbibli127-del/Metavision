@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { maskPhone } from "@/lib/auth";
+import { rateLimit } from "@/lib/rate-limit";
 import {
   COOKIE_PENDING,
   cookieOptions,
@@ -9,9 +10,23 @@ import {
   pendingCookieMaxAge,
 } from "@/lib/auth-tokens";
 import { sendWhatsAppOtp } from "@/lib/whatsapp";
+import bcrypt from "bcryptjs";
+import { normalizePhoneDigits } from "@/lib/phone";
 
 export async function POST(request: Request) {
   try {
+    const clientIp =
+      request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+      request.headers.get("x-real-ip") ??
+      "unknown";
+    const limited = rateLimit(`otp:${clientIp}`, 5, 60_000);
+    if (!limited.ok) {
+      return NextResponse.json(
+        { error: `Çox cəhd. ${limited.retryAfter}s sonra yenidən cəhd edin.` },
+        { status: 429 },
+      );
+    }
+
     const body = (await request.json()) as {
       firstName?: string;
       lastName?: string;
@@ -29,7 +44,11 @@ export async function POST(request: Request) {
     }
 
     const otp = generateOtp();
-    const pendingToken = await createPendingToken({ firstName, lastName, phone }, otp);
+    const passwordHash = await bcrypt.hash(password, 10);
+    const pendingToken = await createPendingToken(
+      { firstName, lastName, phone: normalizePhoneDigits(phone), passwordHash },
+      otp,
+    );
 
     const whatsapp = await sendWhatsAppOtp(phone, otp);
 

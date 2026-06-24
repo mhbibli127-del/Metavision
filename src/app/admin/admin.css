@@ -36,7 +36,7 @@
   font-weight: 800;
   letter-spacing: 0.04em;
   color: #d7dee8;
-}
+}p
 
 .admin-brand-sub {
   margin-top: 4px;
@@ -812,4 +812,84 @@
 
 .admin-loading {
   min-height: 200px;
+}
+
+/* System diagnostics (admin) */
+.admin-engine-status .admin-engine-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1rem;
+  margin-top: 0.75rem;
+}
+
+.admin-engine-tile {
+  padding: 1rem;
+  border-radius: 12px;
+  border: 1px solid #e8edf4;
+  background: #fafbfc;
+}
+
+.admin-engine-tile h4 {
+  margin: 0.5rem 0 0.35rem;
+  font-size: 15px;
+}
+
+.admin-engine-tile p {
+  margin: 0;
+  font-size: 13px;
+  color: #64748b;
+  line-height: 1.45;
+}
+
+.admin-engine-tile ul {
+  margin: 0.5rem 0 0;
+  padding-left: 1.1rem;
+  font-size: 12px;
+  color: #475569;
+}
+
+.admin-engine-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.admin-engine-badge--live {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.admin-engine-badge--lab {
+  background: #ede9fe;
+  color: #5b21b6;
+}
+
+.admin-engine-metric {
+  margin-top: 0.75rem !important;
+  font-size: 13px !important;
+  color: #334155 !important;
+}
+
+.admin-engine-links {
+  display: flex;
+  gap: 1rem;
+  margin-top: 0.75rem;
+}
+
+.admin-engine-links a {
+  font-size: 13px;
+  color: #2563eb;
+  text-decoration: none;
+}
+
+.admin-engine-links a:hover {
+  text-decoration: underline;
+}
+
+.admin-muted {
+  color: #94a3b8;
+  font-size: 14px;
 }

@@ -1,0 +1,17 @@
+{
+  "name": "Metavision Waiter",
+  "short_name": "Metavision",
+  "description": "Ofisiant sifariş paneli",
+  "start_url": "/waiter",
+  "display": "standalone",
+  "background_color": "#fafafa",
+  "theme_color": "#2563eb",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/nav-logo.png",
+      "sizes": "77x77",
+      "type": "image/png"
+    }
+  ]
+}

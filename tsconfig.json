@@ -19,7 +19,11 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@ai/*": ["./ai-for-metavision/*"],
+      "@brain/*": ["./ai-for-metavision/*"],
+      "@agents/*": ["./ai-for-metavision/*"],
+      "@memory/*": ["./ai-for-metavision/*"]
     }
   },
   "include": [
@@ -30,5 +34,5 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": ["node_modules", "ai-for-metavision", "scripts", "prisma"]
 }

@@ -1,8 +1,11 @@
-import { timelineSteps } from "@/data/solutions";
+import { getSiteSection } from "@/lib/db/site";
 import TimelineStep from "@/components/TimelineStep";
 import { LAYOUT, lineTop, timelineStepLeft } from "@/lib/solutionsLayout";
+import type { TimelineStepData } from "@/data/solutions";
 
-export default function HowItWorks() {
+export default async function HowItWorks() {
+  const timelineSteps = await getSiteSection<TimelineStepData>("timeline");
+
   return (
     <div id="how-it-works" className="solutions-section-2 scroll-mt-40" aria-label="How it works">
       <div className="how-it-works-block">

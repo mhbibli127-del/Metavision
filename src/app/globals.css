@@ -1643,8 +1643,21 @@ body {
 
 .login-form-actions {
   display: flex;
-  justify-content: center;
-  margin-top: 4px;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.login-submit-btn--secondary {
+  text-decoration: none;
+  background: transparent;
+  border: 1px solid rgb(45 155 108 / 45%);
+  color: var(--accent-green);
+  box-shadow: none;
+}
+
+.login-submit-btn--secondary:hover {
+  background: rgb(45 155 108 / 8%);
+  box-shadow: none;
 }
 
 .login-submit-btn {

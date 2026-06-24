@@ -26,6 +26,7 @@ export async function POST() {
         firstName: pending.firstName,
         lastName: pending.lastName,
         phone: pending.phone,
+        passwordHash: pending.passwordHash,
       },
       otp,
     );

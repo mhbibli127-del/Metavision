@@ -1,94 +1,68 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import AdminStatusBadge from "@/components/admin/AdminStatusBadge";
-import {
-  adminClientCounts,
-  adminClients,
-  formatPayment,
-  type AdminClientPlan,
-} from "@/data/admin-clients";
-
-type Filter = "all" | AdminClientPlan;
+import type { AdminClient, AdminClientPlan } from "@/data/admin-clients";
 
 export default function AdminClientsView() {
-  const [filter, setFilter] = useState<Filter>("all");
+  const [clients, setClients] = useState<AdminClient[]>([]);
+  const [filter, setFilter] = useState<"all" | AdminClientPlan>("all");
 
-  const filteredClients = useMemo(() => {
-    if (filter === "all") return adminClients;
-    return adminClients.filter((client) => client.plan === filter);
-  }, [filter]);
+  useEffect(() => {
+    fetch("/api/admin?resource=clients")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.clients) setClients(d.clients);
+      })
+      .catch(() => {});
+  }, []);
+
+  const filtered =
+    filter === "all" ? clients : clients.filter((c) => c.plan === filter);
 
   return (
     <>
+      <h2 className="admin-page-title">Clients</h2>
       <div className="admin-clients-head">
-        <h2 className="admin-page-title">Clients</h2>
-        <div className="admin-filter-tabs" role="tablist" aria-label="Filter clients">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={filter === "all"}
-            className={`admin-filter-tab${filter === "all" ? " is-active" : ""}`}
-            onClick={() => setFilter("all")}
-          >
-            All ({adminClientCounts.total})
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={filter === "Gold"}
-            className={`admin-filter-tab${filter === "Gold" ? " is-active" : ""}`}
-            onClick={() => setFilter("Gold")}
-          >
-            Gold ({adminClientCounts.gold})
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={filter === "Standard"}
-            className={`admin-filter-tab${filter === "Standard" ? " is-active" : ""}`}
-            onClick={() => setFilter("Standard")}
-          >
-            Standard ({adminClientCounts.standard})
-          </button>
+        <div className="admin-filter-tabs">
+          {(["all", "Gold", "Standard"] as const).map((tab) => (
+            <button
+              key={tab}
+              type="button"
+              className={`admin-filter-tab${filter === tab ? " is-active" : ""}`}
+              onClick={() => setFilter(tab === "all" ? "all" : tab)}
+            >
+              {tab === "all" ? "All" : tab}
+            </button>
+          ))}
         </div>
       </div>
-
-      <section className="admin-card admin-card--flush">
-        <div className="admin-table-wrap">
-          <table className="admin-table admin-table--clients">
-            <thead>
-              <tr>
-                <th scope="col">Company</th>
-                <th scope="col">Plan</th>
-                <th scope="col">Start Date</th>
-                <th scope="col">Monthly Payment</th>
-                <th scope="col">Status</th>
+      <div className="admin-table-wrap">
+        <table className="admin-table">
+          <thead>
+            <tr>
+              <th>Company</th>
+              <th>Plan</th>
+              <th>Start</th>
+              <th>Monthly</th>
+              <th>AI Queries</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map((client) => (
+              <tr key={client.id}>
+                <td>{client.company}</td>
+                <td>{client.plan}</td>
+                <td>{client.startDate}</td>
+                <td>{client.monthlyPayment} AZN</td>
+                <td>{client.aiQueries.toLocaleString()}</td>
+                <td><AdminStatusBadge status={client.status} /></td>
               </tr>
-            </thead>
-            <tbody>
-              {filteredClients.map((client) => (
-                <tr key={client.id}>
-                  <td className="admin-table-strong">{client.company}</td>
-                  <td>{client.plan}</td>
-                  <td>{client.startDate}</td>
-                  <td>
-                    <span className="admin-payment">
-                      {formatPayment(client.monthlyPayment)}
-                      <span className="admin-payment-trend" aria-hidden="true">
-                        ↗
-                      </span>
-                    </span>
-                  </td>
-                  <td>
-                    <AdminStatusBadge status={client.status} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </>
   );
 }

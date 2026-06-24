@@ -1,8 +1,42 @@
 "use client";
 
-import { FormEvent, useRef, useState, type ChangeEvent } from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
 import type { PaymentMethod, RestaurantInfo } from "@/data/restaurant-info";
-import { PAYMENT_OPTIONS, staticRestaurantInfo } from "@/data/restaurant-info";
+import { PAYMENT_OPTIONS } from "@/data/restaurant-info";
+import { opsRequest } from "@/lib/client/operations-api";
+
+const emptyInfo: RestaurantInfo = {
+  address: "",
+  openingHours: "",
+  phone: "",
+  email: "",
+  website: "",
+  parking: "",
+  amenities: "",
+  paymentMethods: [],
+  activeCampaigns: "",
+  imageName: "",
+};
+
+function mapApiToInfo(data: Record<string, unknown>): RestaurantInfo {
+  const methods = Array.isArray(data.paymentMethods)
+    ? (data.paymentMethods as string[]).filter((m): m is PaymentMethod =>
+        PAYMENT_OPTIONS.includes(m as PaymentMethod),
+      )
+    : [];
+  return {
+    address: String(data.address ?? ""),
+    openingHours: String(data.openingHours ?? ""),
+    phone: String(data.phone ?? ""),
+    email: String(data.email ?? ""),
+    website: String(data.website ?? ""),
+    parking: String(data.parking ?? ""),
+    amenities: String(data.amenities ?? ""),
+    paymentMethods: methods,
+    activeCampaigns: String(data.activeCampaigns ?? ""),
+    imageName: "",
+  };
+}
 
 function RefreshIcon() {
   return (
@@ -21,10 +55,26 @@ function UploadIcon() {
   );
 }
 
+import { useI18n } from "@/lib/i18n-context";
+import DashPageHeader from "@/components/dashboard/DashPageHeader";
+
 export default function RestaurantInfoView() {
-  const [info, setInfo] = useState<RestaurantInfo>(staticRestaurantInfo);
+  const { t } = useI18n();
+  const [info, setInfo] = useState<RestaurantInfo>(emptyInfo);
   const [savedMessage, setSavedMessage] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const loadFromApi = useCallback(() => {
+    opsRequest<{ restaurant: Record<string, unknown> }>("restaurant")
+      .then((d) => {
+        if (d.restaurant) setInfo(mapApiToInfo(d.restaurant));
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    loadFromApi();
+  }, [loadFromApi]);
 
   function updateField<K extends keyof RestaurantInfo>(key: K, value: RestaurantInfo[K]) {
     setInfo((prev) => ({ ...prev, [key]: value }));
@@ -43,7 +93,7 @@ export default function RestaurantInfoView() {
   }
 
   function handleRefresh() {
-    setInfo(staticRestaurantInfo);
+    loadFromApi();
     setSavedMessage("");
   }
 
@@ -55,20 +105,33 @@ export default function RestaurantInfoView() {
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setSavedMessage("Dəyişikliklər yadda saxlanıldı.");
+    setSavedMessage("");
+    opsRequest("restaurant", {
+      method: "PATCH",
+      body: JSON.stringify({
+        address: info.address,
+        openingHours: info.openingHours,
+        phone: info.phone,
+        email: info.email,
+        website: info.website,
+        parking: info.parking,
+        amenities: info.amenities,
+        activeCampaigns: info.activeCampaigns,
+        paymentMethods: info.paymentMethods,
+        imageName: info.imageName,
+      }),
+    })
+      .then(() => setSavedMessage("Dəyişikliklər yadda saxlanıldı."))
+      .catch(() => setSavedMessage("Saxlanılmadı — yenidən cəhd edin."));
   }
 
   return (
     <div className="dash-page dash-restaurant-page">
-      <header className="dash-page-header">
-        <div>
-          <h1 className="dash-page-title">Restaurant Info</h1>
-          <p className="dash-page-subtitle">Manage your public profile and business details</p>
-        </div>
-        <button type="button" className="dash-refresh-btn" aria-label="Refresh restaurant info" onClick={handleRefresh}>
+      <DashPageHeader titleKey="restaurantInfoTitle" subtitleKey="restaurantInfoSubtitle">
+        <button type="button" className="dash-refresh-btn" aria-label={t("refresh")} onClick={handleRefresh}>
           <RefreshIcon />
         </button>
-      </header>
+      </DashPageHeader>
 
       <form className="dash-restaurant-layout" onSubmit={handleSubmit}>
         <section className="dash-restaurant-card">
@@ -205,7 +268,7 @@ export default function RestaurantInfoView() {
         <div className="dash-restaurant-footer">
           {savedMessage ? <p className="dash-restaurant-saved">{savedMessage}</p> : <span />}
           <button type="submit" className="dash-restaurant-save-btn">
-            Save the changes
+            {t("save")}
           </button>
         </div>
       </form>

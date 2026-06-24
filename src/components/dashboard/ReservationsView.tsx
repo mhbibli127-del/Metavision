@@ -1,14 +1,17 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import type { Reservation, ReservationStatus } from "@/data/reservations";
 import {
   formatDisplayDate,
   getDayFromIso,
-  staticReservations,
 } from "@/data/reservations";
 import ReservationsStats from "@/components/dashboard/ReservationsStats";
 import ReservationsTable from "@/components/dashboard/ReservationsTable";
+import TablePagination from "@/components/ui/TablePagination";
+import { useConfirm } from "@/lib/confirm-context";
+import { useToast } from "@/lib/toast-context";
+import { useTableFilter } from "@/lib/useTableFilter";
 
 function RefreshIcon() {
   return (
@@ -43,8 +46,53 @@ const emptyForm = (): FormState => ({
   status: "Confirmed",
 });
 
+import { useI18n } from "@/lib/i18n-context";
+import DashPageHeader from "@/components/dashboard/DashPageHeader";
+
 export default function ReservationsView() {
-  const [reservations, setReservations] = useState<Reservation[]>(staticReservations);
+  const { t } = useI18n();
+  const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [statusFilter, setStatusFilter] = useState("all");
+  const confirm = useConfirm();
+  const { push: toast } = useToast();
+
+  const filterFn = useCallback(
+    (r: Reservation, query: string, filters: Record<string, string>) => {
+      const q = query.toLowerCase();
+      const matchQuery =
+        !q ||
+        r.guest.toLowerCase().includes(q) ||
+        r.phone.includes(q) ||
+        r.table.toLowerCase().includes(q);
+      const sf = filters.status ?? "all";
+      const matchStatus = sf === "all" || r.status === sf;
+      return matchQuery && matchStatus;
+    },
+    [],
+  );
+
+  const { query, setQuery, setFilter, page, setPage, totalPages, paged } = useTableFilter(
+    reservations,
+    filterFn,
+    10,
+  );
+
+  useEffect(() => {
+    setFilter("status", statusFilter);
+  }, [statusFilter, setFilter]);
+
+  function loadReservations() {
+    fetch("/api/reservations")
+      .then((r) => r.json())
+      .then((d) => {
+        if (Array.isArray(d.reservations)) setReservations(d.reservations);
+      })
+      .catch(() => {});
+  }
+
+  useEffect(() => {
+    loadReservations();
+  }, []);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<FormState>(emptyForm);
 
@@ -56,56 +104,127 @@ export default function ReservationsView() {
     setForm((prev) => ({ ...prev, day: getDayFromIso(form.date) }));
   }, [form.date]);
 
-  function handleCancel(id: string) {
-    setReservations((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, status: "Cancelled" } : item)),
-    );
+  async function handleCancel(id: string) {
+    if (!(await confirm("Rezervasiyanı ləğv etmək istəyirsiniz?"))) return;
+    try {
+      const res = await fetch("/api/reservations", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, status: "Cancelled" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Ləğv olunmadı");
+      setReservations((prev) =>
+        prev.map((item) => (item.id === id ? { ...item, status: "Cancelled" as const } : item)),
+      );
+      toast("Rezervasiya ləğv edildi", "success");
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "Ləğv olunmadı", "error");
+    }
+  }
+
+  async function handleDeposit(id: string, depositAmount: number, depositPaid: boolean) {
+    try {
+      const res = await fetch("/api/reservations", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, depositAmount, depositPaid }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error);
+      setReservations((prev) =>
+        prev.map((item) => (item.id === id ? { ...item, depositAmount, depositPaid } : item)),
+      );
+      toast(t("updated"), "success");
+    } catch (e) {
+      toast(e instanceof Error ? e.message : t("error"), "error");
+    }
+  }
+
+  async function handleSms(id: string) {
+    try {
+      const res = await fetch("/api/reservations", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, action: "reminder" }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error);
+      setReservations((prev) =>
+        prev.map((item) => (item.id === id ? { ...item, smsReminderSent: true } : item)),
+      );
+      toast(t("success"), "success");
+    } catch (e) {
+      toast(e instanceof Error ? e.message : t("error"), "error");
+    }
   }
 
   function handleRefresh() {
-    setReservations(staticReservations);
+    loadReservations();
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    const next: Reservation = {
-      id: `res-${Date.now()}`,
-      guest: form.guest.trim(),
-      phone: form.phone.trim(),
-      table: form.table.trim(),
-      isVip: form.isVip,
-      guests: Math.max(1, Number(form.guests) || 1),
-      date: formatDisplayDate(form.date),
-      day: form.day || getDayFromIso(form.date),
-      time: form.time,
-      status: form.status,
-    };
+    fetch("/api/reservations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        guest: form.guest.trim(),
+        phone: form.phone.trim(),
+        partySize: Math.max(1, Number(form.guests) || 1),
+        date: form.date,
+        time: form.time,
+        status: form.status,
+        table: form.table.trim(),
+      }),
+    })
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.reservation) {
+          setReservations((prev) => [d.reservation, ...prev]);
+        } else {
+          loadReservations();
+        }
+      })
+      .catch(() => loadReservations());
 
-    setReservations((prev) => [next, ...prev]);
     setForm(emptyForm());
     setShowForm(false);
   }
 
   return (
     <div className="dash-page">
-      <header className="dash-page-header">
-        <div>
-          <h1 className="dash-page-title">Reservations</h1>
-          <p className="dash-page-subtitle">Manage and track all restaurant orders</p>
-        </div>
+      <DashPageHeader titleKey="reservationsTitle" subtitleKey="reservationsSubtitle">
         <div className="dash-page-header-actions">
           <button type="button" className="dash-add-btn" onClick={() => setShowForm(true)}>
-            Add Reservation
+            {t("addReservation")}
           </button>
-          <button type="button" className="dash-refresh-btn" aria-label="Refresh reservations" onClick={handleRefresh}>
+          <button type="button" className="dash-refresh-btn" aria-label={t("refresh")} onClick={handleRefresh}>
             <RefreshIcon />
           </button>
         </div>
-      </header>
+      </DashPageHeader>
 
       <ReservationsStats reservations={reservations} />
-      <ReservationsTable reservations={reservations} onCancel={handleCancel} />
+      <div className="dash-staff-filters" style={{ marginBottom: 12 }}>
+        <input
+          className="dash-menu-search-input"
+          placeholder={t("search")}
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+        <select className="dash-staff-filter-select" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+          <option value="all">{t("allStatuses")}</option>
+          <option value="Confirmed">Confirmed</option>
+          <option value="Cancelled">Cancelled</option>
+        </select>
+      </div>
+      <ReservationsTable
+        reservations={paged}
+        onCancel={handleCancel}
+        onDeposit={handleDeposit}
+        onSms={handleSms}
+      />
+      <TablePagination page={page} totalPages={totalPages} onPageChange={setPage} />
 
       {showForm ? (
         <div className="dash-modal-overlay" role="presentation" onClick={() => setShowForm(false)}>
@@ -117,27 +236,27 @@ export default function ReservationsView() {
           >
             <div className="dash-modal-header">
               <h2 id="add-reservation-title" className="dash-modal-title">
-                New reservation
+                {t("newReservation")}
               </h2>
-              <button type="button" className="dash-modal-close" onClick={() => setShowForm(false)} aria-label="Bağla">
+              <button type="button" className="dash-modal-close" onClick={() => setShowForm(false)} aria-label={t("close")}>
                 ×
               </button>
             </div>
 
             <form className="dash-res-form" onSubmit={handleSubmit}>
               <label className="dash-res-field dash-res-field--full">
-                <span className="dash-res-label">Qonaq</span>
+                <span className="dash-res-label">{t("guestLabel")}</span>
                 <input
                   className="dash-res-input"
                   value={form.guest}
                   onChange={(e) => setForm((prev) => ({ ...prev, guest: e.target.value }))}
-                  placeholder="Ad Soyad"
+                  placeholder={t("guestNamePlaceholder")}
                   required
                 />
               </label>
 
               <label className="dash-res-field">
-                <span className="dash-res-label">Tarix</span>
+                <span className="dash-res-label">{t("dateLabel")}</span>
                 <input
                   type="date"
                   className="dash-res-input"
@@ -148,17 +267,17 @@ export default function ReservationsView() {
               </label>
 
               <label className="dash-res-field">
-                <span className="dash-res-label">Gün</span>
-                <input className="dash-res-input dash-res-input--readonly" value={form.day} readOnly placeholder="Avtomatik" />
+                <span className="dash-res-label">{t("dayLabel")}</span>
+                <input className="dash-res-input dash-res-input--readonly" value={form.day} readOnly placeholder={t("dayAuto")} />
               </label>
 
               <label className="dash-res-field">
-                <span className="dash-res-label">Masa nömrəsi</span>
+                <span className="dash-res-label">{t("tableNumberLabel")}</span>
                 <input
                   className="dash-res-input"
                   value={form.table}
                   onChange={(e) => setForm((prev) => ({ ...prev, table: e.target.value }))}
-                  placeholder="Məs: 12"
+                  placeholder={t("tableNumberPlaceholder")}
                   required
                 />
               </label>
@@ -169,23 +288,23 @@ export default function ReservationsView() {
                   checked={form.isVip}
                   onChange={(e) => setForm((prev) => ({ ...prev, isVip: e.target.checked }))}
                 />
-                <span className="dash-res-label">VIP masa</span>
+                <span className="dash-res-label">{t("vipTable")}</span>
               </label>
 
               <label className="dash-res-field">
-                <span className="dash-res-label">Nömrə</span>
+                <span className="dash-res-label">{t("phoneLabel")}</span>
                 <input
                   type="tel"
                   className="dash-res-input"
                   value={form.phone}
                   onChange={(e) => setForm((prev) => ({ ...prev, phone: e.target.value }))}
-                  placeholder="050 123 45 67"
+                  placeholder={t("phonePlaceholder")}
                   required
                 />
               </label>
 
               <label className="dash-res-field">
-                <span className="dash-res-label">Qonaq sayı</span>
+                <span className="dash-res-label">{t("guestCountLabel")}</span>
                 <input
                   type="number"
                   min={1}
@@ -197,7 +316,7 @@ export default function ReservationsView() {
               </label>
 
               <label className="dash-res-field">
-                <span className="dash-res-label">Saat</span>
+                <span className="dash-res-label">{t("timeLabel")}</span>
                 <input
                   type="time"
                   className="dash-res-input"
@@ -216,17 +335,17 @@ export default function ReservationsView() {
                     setForm((prev) => ({ ...prev, status: e.target.value as ReservationStatus }))
                   }
                 >
-                  <option value="Confirmed">Qəbul olunub (Confirmed)</option>
-                  <option value="Cancelled">Ləğv edilib (Cancelled)</option>
+                  <option value="Confirmed">{t("statusConfirmed")}</option>
+                  <option value="Cancelled">{t("statusCancelled")}</option>
                 </select>
               </label>
 
               <div className="dash-res-form-actions">
                 <button type="button" className="dash-res-btn-secondary" onClick={() => setShowForm(false)}>
-                  Ləğv et
+                  {t("cancel")}
                 </button>
                 <button type="submit" className="dash-res-btn-primary">
-                  Əlavə et
+                  {t("add")}
                 </button>
               </div>
             </form>

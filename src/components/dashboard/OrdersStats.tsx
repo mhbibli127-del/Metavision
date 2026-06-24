@@ -1,35 +1,37 @@
-import { getOrderStats } from "@/data/orders";
+"use client";
+
+import { StatCard, StatGrid } from "@/components/ui";
+import { useLiveOrderStats } from "@/lib/useLiveOrderStats";
 
 export default function OrdersStats() {
-  const stats = getOrderStats();
+  const { stats, loading } = useLiveOrderStats();
+
+  const currencyLabel = stats?.currency ?? "AZN";
+  const total = stats?.total ?? 0;
+  const completed = stats?.completed ?? 0;
+  const pending = stats?.pending ?? 0;
+  const revenue = stats?.revenue ?? 0;
+  const todayDelta = stats?.todayDelta ?? 0;
 
   return (
-    <div className="dash-stats">
-      <article className="dash-stat-card">
-        <p className="dash-stat-label">Total orders</p>
-        <p className="dash-stat-value dash-stat-value--green">{stats.total}</p>
-        <span className="dash-stat-badge dash-stat-badge--green">+{stats.todayDelta} Today</span>
-      </article>
-
-      <article className="dash-stat-card">
-        <p className="dash-stat-label">Completed</p>
-        <p className="dash-stat-value dash-stat-value--green">{stats.completed}</p>
-        <span className="dash-stat-badge dash-stat-badge--green">Ready</span>
-      </article>
-
-      <article className="dash-stat-card">
-        <p className="dash-stat-label">Pending</p>
-        <p className="dash-stat-value dash-stat-value--yellow">{stats.pending}</p>
-        <span className="dash-stat-badge dash-stat-badge--yellow">Active</span>
-      </article>
-
-      <article className="dash-stat-card">
-        <p className="dash-stat-label">Revenue</p>
-        <p className="dash-stat-value dash-stat-value--blue">
-          {stats.revenue.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-        </p>
-        <span className="dash-stat-badge dash-stat-badge--blue">AZN</span>
-      </article>
-    </div>
+    <StatGrid>
+      <StatCard
+        label="Total orders"
+        value={total}
+        loading={loading}
+        badge={`+${todayDelta} Today`}
+        tone="success"
+      />
+      <StatCard label="Completed" value={completed} loading={loading} badge="Ready" tone="success" />
+      <StatCard label="Pending" value={pending} loading={loading} badge="Active" tone="warning" />
+      <StatCard
+        label="Revenue"
+        value={revenue}
+        loading={loading}
+        format={(n) => n.toLocaleString("en-US", { maximumFractionDigits: 0 })}
+        badge={currencyLabel}
+        tone="accent"
+      />
+    </StatGrid>
   );
 }

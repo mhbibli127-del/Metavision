@@ -1,9 +1,10 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import type { RestaurantTable, TableStatus } from "@/data/tables";
-import { getDefaultZoneForStatus, staticTables } from "@/data/tables";
+import { getDefaultZoneForStatus } from "@/data/tables";
 import TablesGrid from "@/components/dashboard/TablesGrid";
+import { opsRequest } from "@/lib/client/operations-api";
 
 function RefreshIcon() {
   return (
@@ -26,17 +27,33 @@ const emptyForm = (): FormState => ({
   status: "Available",
 });
 
+import { useI18n } from "@/lib/i18n-context";
+import DashPageHeader from "@/components/dashboard/DashPageHeader";
+
 export default function TablesView() {
-  const [tables, setTables] = useState<RestaurantTable[]>(staticTables);
-  const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState<FormState>(emptyForm);
+  const { t } = useI18n();
+  const [tables, setTables] = useState<RestaurantTable[]>([]);
+
   const [formError, setFormError] = useState("");
 
-  function handleRefresh() {
-    setTables(staticTables);
+  async function loadTables() {
+    const d = await opsRequest<{ tables: RestaurantTable[] }>("tables");
+    if (Array.isArray(d.tables)) setTables(d.tables);
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  useEffect(() => {
+    loadTables().catch(() => {});
+    const timer = setInterval(() => loadTables().catch(() => {}), 8000);
+    return () => clearInterval(timer);
+  }, []);
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState<FormState>(emptyForm);
+
+  function handleRefresh() {
+    loadTables().catch(() => {});
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setFormError("");
 
@@ -48,35 +65,31 @@ export default function TablesView() {
       return;
     }
 
-    const next: RestaurantTable = {
-      id: `t-${Date.now()}`,
-      number,
-      seats,
-      status: form.status,
-      zone: getDefaultZoneForStatus(form.status),
-    };
-
-    setTables((prev) => [...prev, next].sort((a, b) => Number(a.number) - Number(b.number)));
-    setForm(emptyForm());
-    setShowForm(false);
+    try {
+      await opsRequest("tables", {
+        method: "POST",
+        body: JSON.stringify({ number, seats, status: form.status, zone: getDefaultZoneForStatus(form.status) }),
+      });
+      await loadTables();
+      setForm(emptyForm());
+      setShowForm(false);
+    } catch (e) {
+      setFormError(e instanceof Error ? e.message : "Masa əlavə olunmadı");
+    }
   }
 
   return (
     <div className="dash-page">
-      <header className="dash-page-header">
-        <div>
-          <h1 className="dash-page-title">Tables</h1>
-          <p className="dash-page-subtitle">Floor plan and seating capacity</p>
-        </div>
+      <DashPageHeader titleKey="tablesTitle" subtitleKey="tablesSubtitle">
         <div className="dash-page-header-actions">
           <button type="button" className="dash-add-btn" onClick={() => setShowForm(true)}>
-            Add Table
+            {t("addTable")}
           </button>
-          <button type="button" className="dash-refresh-btn" aria-label="Refresh tables" onClick={handleRefresh}>
+          <button type="button" className="dash-refresh-btn" aria-label={t("refresh")} onClick={handleRefresh}>
             <RefreshIcon />
           </button>
         </div>
-      </header>
+      </DashPageHeader>
 
       <div className="dash-tables-panel">
         <TablesGrid tables={tables} />
@@ -92,9 +105,9 @@ export default function TablesView() {
           >
             <div className="dash-modal-header">
               <h2 id="add-table-title" className="dash-modal-title">
-                Add Table
+                {t("addTable")}
               </h2>
-              <button type="button" className="dash-modal-close" onClick={() => setShowForm(false)} aria-label="Bağla">
+              <button type="button" className="dash-modal-close" onClick={() => setShowForm(false)} aria-label={t("close")}>
                 ×
               </button>
             </div>
@@ -143,10 +156,10 @@ export default function TablesView() {
 
               <div className="dash-res-form-actions">
                 <button type="button" className="dash-res-btn-secondary" onClick={() => setShowForm(false)}>
-                  Ləğv et
+                  {t("cancel")}
                 </button>
                 <button type="submit" className="dash-res-btn-primary">
-                  Əlavə et
+                  {t("add")}
                 </button>
               </div>
             </form>

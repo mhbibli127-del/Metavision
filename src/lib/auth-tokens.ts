@@ -62,6 +62,14 @@ async function decodeToken<T extends object>(token: string): Promise<T | null> {
   }
 }
 
+export async function encodeSignedPayload<T extends object>(payload: T): Promise<string> {
+  return encodeToken(payload);
+}
+
+export async function decodeSignedPayload<T extends object>(token: string): Promise<T | null> {
+  return decodeToken<T>(token);
+}
+
 export async function hashOtp(otp: string): Promise<string> {
   const key = await getHmacKey();
   const digest = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(`otp:${otp}`));

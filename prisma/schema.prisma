@@ -1,0 +1,445 @@
+// Prisma schema — PostgreSQL (Supabase) or any Postgres via DATABASE_URL.
+// Local SQLite: change provider to "sqlite" and url to "file:./dev.db"
+// Enum/string union types: src/lib/prisma-types.ts
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                    String    @id @default(cuid())
+  firstName             String
+  lastName              String
+  phone                 String    @unique
+  email                 String?
+  password              String?
+  avatar                String?
+  language              String    @default("az")
+  emailNotifications    Boolean   @default(true)
+  whatsappNotifications Boolean   @default(true)
+  role                  String    @default("USER")
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  restaurant    Restaurant?
+  orders        Order[]
+  reservations  Reservation[]
+  notifications Notification[]
+  subscription  Subscription?
+
+  @@index([phone])
+}
+
+model Restaurant {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  name            String
+  address         String
+  city            String   @default("Baku")
+  openingHours    String
+  phone           String
+  email           String
+  website         String?
+  parking         String?
+  amenities       String?
+  activeCampaigns String?
+  paymentMethods  String   @default("[]")
+  imageName       String?
+  currency        String   @default("AZN")
+  cuisine         String   @default("[]")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  menuItems    MenuItem[]
+  tables       Table[]
+  staff        Staff[]
+  inventory    Inventory[]
+  customers    Customer[]
+  reservations Reservation[]
+  metaAds      MetaAdsConnection?
+
+  @@index([userId])
+  @@index([city])
+}
+
+model MenuItem {
+  id              String   @id @default(cuid())
+  restaurantId    String
+  name            String
+  category        String
+  description     String
+  price           Decimal
+  image           String?
+  available       Boolean  @default(true)
+  featured        Boolean  @default(false)
+  preparationTime Int      @default(15)
+  calories        Int?
+  tags            String   @default("[]")
+  order           Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  restaurant Restaurant  @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  orderItems OrderItem[]
+
+  @@index([restaurantId])
+  @@index([category])
+}
+
+model Order {
+  id            String   @id @default(cuid())
+  userId        String
+  orderNumber   String   @unique
+  status        String   @default("PENDING")
+  total         Decimal
+  notes         String?
+  tableId       String?
+  reservationId String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user        User         @relation(fields: [userId], references: [id])
+  table       Table?       @relation(fields: [tableId], references: [id])
+  reservation Reservation? @relation(fields: [reservationId], references: [id])
+  items       OrderItem[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model OrderItem {
+  id         String  @id @default(cuid())
+  orderId    String
+  menuItemId String
+  quantity   Int
+  price      Decimal
+  notes      String?
+
+  order    Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItem MenuItem @relation(fields: [menuItemId], references: [id])
+
+  @@index([orderId])
+  @@index([menuItemId])
+}
+
+model Reservation {
+  id           String   @id @default(cuid())
+  userId       String
+  restaurantId String
+  name         String
+  phone        String
+  date         DateTime
+  time         String
+  partySize    Int
+  status       String   @default("CONFIRMED")
+  notes        String?
+  tableId      String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user       User       @relation(fields: [userId], references: [id])
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id])
+  table      Table?     @relation(fields: [tableId], references: [id])
+  orders     Order[]
+
+  @@index([userId])
+  @@index([restaurantId])
+  @@index([date])
+  @@index([status])
+}
+
+model Table {
+  id           String   @id @default(cuid())
+  restaurantId String
+  number       String
+  capacity     Int
+  zone         String
+  shape        String   @default("ROUND")
+  status       String   @default("AVAILABLE")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  restaurant   Restaurant    @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  orders       Order[]
+  reservations Reservation[]
+
+  @@index([restaurantId])
+  @@index([status])
+}
+
+model Staff {
+  id           String   @id @default(cuid())
+  restaurantId String
+  firstName    String
+  lastName     String
+  phone        String
+  email        String?
+  role         String
+  status       String   @default("ACTIVE")
+  hireDate     DateTime
+  salary       Decimal?
+  avatar       String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId])
+  @@index([status])
+}
+
+model Customer {
+  id           String    @id @default(cuid())
+  restaurantId String
+  name         String
+  phone        String
+  email        String?
+  visits       Int       @default(0)
+  totalSpent   Decimal   @default(0)
+  lastVisit    DateTime?
+  notes        String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId])
+  @@index([phone])
+}
+
+model Inventory {
+  id            String    @id @default(cuid())
+  restaurantId  String
+  name          String
+  category      String
+  quantity      Float
+  unit          String
+  minQuantity   Float
+  costPerUnit   Decimal
+  supplier      String?
+  lastRestocked DateTime?
+  status        String    @default("IN_STOCK")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId])
+  @@index([category])
+  @@index([status])
+}
+
+model Subscription {
+  id                   String   @id @default(cuid())
+  userId               String   @unique
+  plan                 String
+  status               String   @default("ACTIVE")
+  startDate            DateTime
+  endDate              DateTime
+  autoRenew            Boolean  @default(true)
+  stripeCustomerId     String?
+  stripeSubscriptionId String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String
+  title     String
+  message   String
+  read      Boolean  @default(false)
+  metadata  String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([read])
+  @@index([createdAt])
+}
+
+model AdminClient {
+  id             String   @id @default(cuid())
+  company        String
+  plan           String
+  startDate      DateTime
+  monthlyPayment Decimal
+  status         String   @default("ACTIVE")
+  aiQueries      Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([plan])
+  @@index([status])
+}
+
+model AnalyticsEvent {
+  id        String   @id @default(cuid())
+  userId    String?
+  eventType String
+  metadata  String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([eventType])
+  @@index([createdAt])
+}
+
+model CompetitorRestaurant {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  address     String
+  city        String   @default("Baku")
+  district    String?
+  cuisine     String   @default("[]")
+  rating      Float?
+  reviewCount Int      @default(0)
+  priceRange  String   @default("MID")
+  currency    String   @default("AZN")
+  website     String?
+  advantages  String   @default("[]")
+  weaknesses  String   @default("[]")
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  menuItems CompetitorMenuItem[]
+
+  @@index([city])
+  @@index([priceRange])
+}
+
+model CompetitorMenuItem {
+  id           String   @id @default(cuid())
+  competitorId String
+  name         String
+  category     String
+  description  String?
+  price        Decimal
+  currency     String   @default("AZN")
+  tags         String   @default("[]")
+  isPopular    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  competitor CompetitorRestaurant @relation(fields: [competitorId], references: [id], onDelete: Cascade)
+
+  @@index([competitorId])
+  @@index([category])
+}
+
+model MarketTrend {
+  id              String   @id @default(cuid())
+  city            String   @default("Baku")
+  region          String   @default("Absheron")
+  cuisine         String
+  momentum        Float
+  demandChange    Float
+  confidence      Float
+  currency        String   @default("AZN")
+  avgDishPriceAzn Decimal?
+  source          String?
+  observedAt      DateTime @default(now())
+
+  @@index([city])
+  @@index([cuisine])
+  @@index([observedAt])
+}
+
+model ExchangeRate {
+  id            String   @id @default(cuid())
+  baseCurrency  String
+  quoteCurrency String
+  rate          Decimal
+  fetchedAt     DateTime @default(now())
+
+  @@unique([baseCurrency, quoteCurrency])
+  @@index([fetchedAt])
+}
+
+model SiteContent {
+  id        String   @id @default(cuid())
+  section   String   @unique
+  items     String
+  updatedAt DateTime @updatedAt
+}
+
+model PlatformMetric {
+  id                  String   @id @default(cuid())
+  activeClients       Int
+  activeClientsGrowth Float
+  monthlyRevenue      Decimal
+  revenueGrowth       Float
+  aiQueries           Int
+  aiQueriesGrowth     Float
+  onboardingRate      Float
+  onboardingGrowth    Float
+  goldPlanCount       Int
+  standardPlanCount   Int
+  recordedAt          DateTime @default(now())
+}
+
+// Meta (Facebook) Ads — OAuth connection per restaurant
+model MetaAdsConnection {
+  id             String    @id @default(cuid())
+  restaurantId   String    @unique
+  metaUserId     String?
+  adAccountId    String
+  adAccountName  String?
+  accessToken    String
+  tokenExpiresAt DateTime?
+  currency       String    @default("USD")
+  status         String    @default("connected")
+  lastSyncedAt   DateTime?
+  lastError      String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  restaurant Restaurant       @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  insights   MetaAdsInsight[]
+
+  @@index([adAccountId])
+  @@index([status])
+}
+
+model MetaAdsInsight {
+  id           String   @id @default(cuid())
+  connectionId String
+  level        String
+  entityId     String
+  entityName   String
+  dateStart    DateTime
+  dateEnd      DateTime
+  spend        Float    @default(0)
+  impressions  Int      @default(0)
+  clicks       Int      @default(0)
+  reach        Int      @default(0)
+  ctr          Float    @default(0)
+  cpc          Float    @default(0)
+  cpm          Float    @default(0)
+  conversions  Float    @default(0)
+  roas         Float?
+  status       String?
+  rawPayload   String?
+  fetchedAt    DateTime @default(now())
+
+  connection MetaAdsConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  @@unique([connectionId, level, entityId, dateStart, dateEnd])
+  @@index([connectionId, dateStart])
+}
